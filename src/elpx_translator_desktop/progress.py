@@ -10,7 +10,7 @@ class TranslationCancelledError(Exception):
 @dataclass(slots=True)
 class ProgressEvent:
     message: str
-    state: str = 'Trabajando'
+    state: str = 'working'
     progress_percent: float | None = None
     completed_units: int | None = None
     total_units: int | None = None

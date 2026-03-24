@@ -12,6 +12,7 @@ from transformers import AutoTokenizer
 from .config import DEFAULT_PERFORMANCE_MODE, MODEL_CONFIG
 from .progress import ProgressEvent, TranslationCancelledError
 from .text_utils import split_long_text
+from .ui_i18n import tr
 
 
 @dataclass(frozen=True)
@@ -25,28 +26,34 @@ class RuntimeProfile:
     reserved_cores: int
     process_nice: int
 
-    def describe(self) -> str:
+    def describe(self, ui_language: str) -> str:
         if self.device == 'cuda':
-            return (
-                f'Perfil automatico: GPU detectada; usando {self.compute_type} '
-                f'y lotes de {self.batch_size}.'
+            return tr(
+                ui_language,
+                'gpu_profile',
+                compute_type=self.compute_type,
+                batch_size=self.batch_size,
             )
 
-        return (
-            f'Perfil automatico: CPU con {self.cpu_count} nucleos; '
-            f'reservando {self.reserved_cores} para el sistema, '
-            f'usando {self.inter_threads} workers, {self.intra_threads} hilos por worker '
-            f'y lotes de {self.batch_size}.'
+        return tr(
+            ui_language,
+            'cpu_profile',
+            cpu_count=self.cpu_count,
+            reserved_cores=self.reserved_cores,
+            inter_threads=self.inter_threads,
+            intra_threads=self.intra_threads,
+            batch_size=self.batch_size,
         )
 
 
 class TranslationEngine:
-    def __init__(self, performance_mode: str = DEFAULT_PERFORMANCE_MODE) -> None:
+    def __init__(self, performance_mode: str = DEFAULT_PERFORMANCE_MODE, ui_language: str = 'es') -> None:
         self._translator: ctranslate2.Translator | None = None
         self._tokenizer = None
         self._model_dir: Path | None = None
         self._runtime_profile: RuntimeProfile | None = None
         self.performance_mode = performance_mode
+        self.ui_language = ui_language
 
     def ensure_model(self, progress_callback, should_cancel=None) -> None:
         self._raise_if_cancelled(should_cancel)
@@ -56,7 +63,12 @@ class TranslationEngine:
         cache_dir = Path(user_cache_dir('elpx-translator-desktop', 'Juanjo')) / 'models'
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-        progress_callback(ProgressEvent(f'Descargando o preparando el modelo {MODEL_CONFIG.label}...', transient=True))
+        progress_callback(
+            ProgressEvent(
+                tr(self.ui_language, 'model_prepare', model_label=MODEL_CONFIG.label),
+                transient=True,
+            ),
+        )
         model_dir = Path(
             snapshot_download(
                 repo_id=MODEL_CONFIG.repo_id,
@@ -73,17 +85,19 @@ class TranslationEngine:
         if runtime_profile.device == 'cpu' and self._lower_process_priority(runtime_profile.process_nice):
             progress_callback(
                 ProgressEvent(
-                    'Prioridad del proceso ajustada a baja para no bloquear el equipo.',
+                    tr(self.ui_language, 'priority_lowered'),
                 ),
             )
 
-        progress_callback(ProgressEvent(runtime_profile.describe()))
+        progress_callback(ProgressEvent(runtime_profile.describe(self.ui_language)))
 
         progress_callback(
             ProgressEvent(
-                (
-                    f'Cargando modelo en {runtime_profile.device} '
-                    f'({runtime_profile.compute_type})...'
+                tr(
+                    self.ui_language,
+                    'loading_model',
+                    device=runtime_profile.device,
+                    compute_type=runtime_profile.compute_type,
                 ),
                 transient=True,
             ),
@@ -183,7 +197,13 @@ class TranslationEngine:
                     completed_value = (progress_meta or {}).get('completed_units_before_batch', 0) + job['unit_offset'] + 1
                     progress_callback(
                         ProgressEvent(
-                            f"{progress_label} · unidad {job['unit_index']} de {(progress_meta or {}).get('total_units', '?')} completada.",
+                            tr(
+                                self.ui_language,
+                                'unit_completed',
+                                progress_label=progress_label,
+                                unit_index=job['unit_index'],
+                                total_units=(progress_meta or {}).get('total_units', '?'),
+                            ),
                             progress_percent=(completed_value / (progress_meta or {}).get('total_units', 1)) * 100,
                             completed_units=completed_value,
                             total_units=(progress_meta or {}).get('total_units'),
@@ -193,22 +213,37 @@ class TranslationEngine:
 
         return [' '.join(chunks).strip() or texts[index] for index, chunks in enumerate(results)]
 
-    @staticmethod
-    def _build_batch_message(progress_label: str, batch: list[dict], progress_meta: dict | None) -> str:
+    def _build_batch_message(self, progress_label: str, batch: list[dict], progress_meta: dict | None) -> str:
         if len(batch) == 1:
             job = batch[0]
             suffix = (
-                f" · parte {job['chunk_index'] + 1} de {job['chunk_count']}"
+                tr(
+                    self.ui_language,
+                    'chunk_suffix',
+                    chunk_index=job['chunk_index'] + 1,
+                    chunk_count=job['chunk_count'],
+                )
                 if job['chunk_count'] > 1
                 else ''
             )
-            return f"{progress_label} · unidad {job['unit_index']} de {(progress_meta or {}).get('total_units', '?')}{suffix}..."
+            return tr(
+                self.ui_language,
+                'single_unit_progress',
+                progress_label=progress_label,
+                unit_index=job['unit_index'],
+                total_units=(progress_meta or {}).get('total_units', '?'),
+                suffix=suffix,
+            )
 
         first_job = batch[0]
         last_job = batch[-1]
-        return (
-            f'{progress_label} · unidades {first_job["unit_index"]}-{last_job["unit_index"]} '
-            f'de {(progress_meta or {}).get("total_units", "?")}...'
+        return tr(
+            self.ui_language,
+            'multi_unit_progress',
+            progress_label=progress_label,
+            first_unit=first_job['unit_index'],
+            last_unit=last_job['unit_index'],
+            total_units=(progress_meta or {}).get('total_units', '?'),
         )
 
     @staticmethod
@@ -312,7 +347,6 @@ class TranslationEngine:
         except Exception:
             return False
 
-    @staticmethod
-    def _raise_if_cancelled(should_cancel) -> None:
+    def _raise_if_cancelled(self, should_cancel) -> None:
         if callable(should_cancel) and should_cancel():
-            raise TranslationCancelledError('Traduccion cancelada por el usuario.')
+            raise TranslationCancelledError(tr(self.ui_language, 'translation_cancelled'))

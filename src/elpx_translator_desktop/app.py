@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import sys
 import time
 from pathlib import Path
@@ -23,28 +24,31 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
+from . import PROJECT_AUTHOR, PROJECT_LICENSE_NAME, PROJECT_RELEASES_URL, PROJECT_REPOSITORY_URL, __version__
 from .config import (
     DEFAULT_PERFORMANCE_MODE,
     DEFAULT_SOURCE_LANGUAGE,
     DEFAULT_TARGET_LANGUAGE,
     LANGUAGE_OPTIONS,
-    PERFORMANCE_MODE_LABELS,
-    PERFORMANCE_MODE_OPTIONS,
     SUPPORTED_LANGUAGE_CODES,
 )
 from .elpx_service import ElpxTranslationService, TranslationOptions
 from .progress import ProgressEvent, TranslationCancelledError
 from .translator_engine import TranslationEngine
+from .update_checker import UpdateCheckWorker
+from .ui_i18n import UI_LANGUAGE_OPTIONS, detect_ui_language, performance_label, tr
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, performance_mode: str, parent: QWidget | None = None) -> None:
+    def __init__(self, performance_mode: str, ui_language: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle('Configuracion')
+        self.ui_language = ui_language
+        self.setWindowTitle(tr(ui_language, 'settings_title'))
         self.setModal(True)
         self.resize(460, 280)
         self.setMinimumSize(440, 260)
@@ -53,24 +57,36 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
 
-        title = QLabel('Rendimiento')
+        language_title = QLabel(tr(ui_language, 'settings_interface_language'))
+        language_title.setProperty('fieldLabel', True)
+        layout.addWidget(language_title)
+
+        self.ui_language_combo = QComboBox()
+        for code, label in UI_LANGUAGE_OPTIONS:
+            self.ui_language_combo.addItem(label, code)
+        combo_index = self.ui_language_combo.findData(ui_language)
+        if combo_index >= 0:
+            self.ui_language_combo.setCurrentIndex(combo_index)
+        layout.addWidget(self.ui_language_combo)
+
+        title = QLabel(tr(ui_language, 'settings_performance'))
         title.setProperty('fieldLabel', True)
         layout.addWidget(title)
 
         self.performance_combo = QComboBox()
-        for code, label in PERFORMANCE_MODE_OPTIONS:
-            self.performance_combo.addItem(label, code)
+        for code, _ in (
+            ('suave', ''),
+            ('equilibrado', ''),
+            ('rapido', ''),
+            ('maximo', ''),
+        ):
+            self.performance_combo.addItem(performance_label(ui_language, code), code)
         combo_index = self.performance_combo.findData(performance_mode)
         if combo_index >= 0:
             self.performance_combo.setCurrentIndex(combo_index)
         layout.addWidget(self.performance_combo)
 
-        help_label = QLabel(
-            'Suave: mas margen para el sistema.\n'
-            'Equilibrado: opcion recomendada.\n'
-            'Rapido: mas CPU si compensa.\n'
-            'Maximo: exprime mas la maquina.'
-        )
+        help_label = QLabel(tr(ui_language, 'settings_help'))
         help_label.setWordWrap(True)
         help_label.setObjectName('infoLabel')
         help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
@@ -81,10 +97,56 @@ class SettingsDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        ok_button = buttons.button(QDialogButtonBox.Ok)
+        cancel_button = buttons.button(QDialogButtonBox.Cancel)
+        if ok_button is not None:
+            ok_button.setText(tr(ui_language, 'ok_button'))
+        if cancel_button is not None:
+            cancel_button.setText(tr(ui_language, 'cancel_button'))
         layout.addWidget(buttons)
 
     def selected_performance_mode(self) -> str:
         return str(self.performance_combo.currentData())
+
+    def selected_ui_language(self) -> str:
+        return str(self.ui_language_combo.currentData())
+
+
+class AboutDialog(QDialog):
+    def __init__(self, ui_language: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(tr(ui_language, 'about_title'))
+        self.resize(620, 520)
+        self.setMinimumSize(560, 460)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        license_path = Path(__file__).resolve().parents[2] / 'LICENSE'
+        license_text = license_path.read_text(encoding='utf-8').strip() if license_path.exists() else PROJECT_LICENSE_NAME
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setHtml(
+            f'''
+            <h2>{tr(ui_language, 'app_title')} {__version__}</h2>
+            <p><strong>{tr(ui_language, 'about_author')}:</strong> {PROJECT_AUTHOR}</p>
+            <p><strong>{tr(ui_language, 'about_license')}:</strong> {PROJECT_LICENSE_NAME}</p>
+            <p>{tr(ui_language, 'about_license_body')}</p>
+            <pre>{html.escape(license_text)}</pre>
+            <h3>{tr(ui_language, 'about_versions')}</h3>
+            <p><a href="{PROJECT_REPOSITORY_URL}">{tr(ui_language, 'about_repo_link')}</a></p>
+            <p><a href="{PROJECT_RELEASES_URL}">{tr(ui_language, 'about_releases_link')}</a></p>
+            <h3>{tr(ui_language, 'about_credits')}</h3>
+            <p>{tr(ui_language, 'about_credits_body')}</p>
+            ''',
+        )
+        layout.addWidget(browser, 1)
+
+        close_button = QPushButton(tr(ui_language, 'close_button'))
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button, alignment=Qt.AlignRight)
 
 
 class TranslationWorker(QObject):
@@ -98,6 +160,7 @@ class TranslationWorker(QObject):
         source_language: str,
         target_language: str,
         performance_mode: str,
+        ui_language: str,
     ) -> None:
         super().__init__()
         self.input_path = input_path
@@ -105,6 +168,7 @@ class TranslationWorker(QObject):
         self.source_language = source_language
         self.target_language = target_language
         self.performance_mode = performance_mode
+        self.ui_language = ui_language
         self._cancel_requested = False
 
     def request_cancel(self) -> None:
@@ -116,7 +180,12 @@ class TranslationWorker(QObject):
     @Slot()
     def run(self) -> None:
         start_time = time.time()
-        service = ElpxTranslationService(engine=TranslationEngine(performance_mode=self.performance_mode))
+        service = ElpxTranslationService(
+            engine=TranslationEngine(
+                performance_mode=self.performance_mode,
+                ui_language=self.ui_language,
+            ),
+        )
         try:
             service.translate_file(
                 self.input_path,
@@ -124,6 +193,7 @@ class TranslationWorker(QObject):
                 TranslationOptions(
                     source_language=self.source_language,
                     target_language=self.target_language,
+                    ui_language=self.ui_language,
                     should_cancel=self.is_cancel_requested,
                 ),
                 self.progress.emit,
@@ -131,9 +201,13 @@ class TranslationWorker(QObject):
             elapsed = int(time.time() - start_time)
             self.progress.emit(
                 ProgressEvent(
-                    f'Traduccion terminada en {MainWindow.format_elapsed_summary(elapsed)}. '
-                    f'Archivo guardado en {self.output_path}.',
-                    state='Listo',
+                    tr(
+                        self.ui_language,
+                        'translation_finished',
+                        elapsed=MainWindow.format_elapsed_summary(elapsed),
+                        output_path=self.output_path,
+                    ),
+                    state='done',
                     progress_percent=100,
                 ),
             )
@@ -141,12 +215,20 @@ class TranslationWorker(QObject):
             elapsed = int(time.time() - start_time)
             if self.output_path.exists():
                 self.output_path.unlink(missing_ok=True)
-            suffix = f' Tras {MainWindow.format_elapsed_summary(elapsed)}.' if elapsed else ''
-            self.progress.emit(ProgressEvent(f'{error}{suffix}', state='Cancelado'))
+            suffix = (
+                tr(self.ui_language, 'after_elapsed', elapsed=MainWindow.format_elapsed_summary(elapsed))
+                if elapsed
+                else ''
+            )
+            self.progress.emit(ProgressEvent(f'{error}{suffix}', state='cancelled'))
         except Exception as error:  # noqa: BLE001
             elapsed = int(time.time() - start_time)
-            suffix = f' Tras {MainWindow.format_elapsed_summary(elapsed)}.' if elapsed else ''
-            self.progress.emit(ProgressEvent(f'{error}{suffix}', state='Error'))
+            suffix = (
+                tr(self.ui_language, 'after_elapsed', elapsed=MainWindow.format_elapsed_summary(elapsed))
+                if elapsed
+                else ''
+            )
+            self.progress.emit(ProgressEvent(f'{error}{suffix}', state='error'))
         finally:
             self.finished.emit()
 
@@ -154,7 +236,6 @@ class TranslationWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('ELPX Translator Desktop')
         self.resize(1040, 820)
 
         self.start_time = 0.0
@@ -167,15 +248,23 @@ class MainWindow(QMainWindow):
         self.last_directory = Path.home()
         self.thread: QThread | None = None
         self.worker: TranslationWorker | None = None
+        self.update_thread: QThread | None = None
+        self.update_worker: UpdateCheckWorker | None = None
         self.log_entries: list[str] = []
         self.transient_message = ''
         self.cancel_requested = False
+        self.latest_version: str | None = None
+        self.latest_version_url: str | None = None
         self.settings = QSettings('Juanjo', 'ELPXTranslatorDesktop')
+        self.ui_language = self._load_ui_language()
         self.performance_mode = self._load_performance_mode()
+        self.current_status = 'waiting'
 
         self._build_ui()
         self._apply_styles()
+        self._apply_ui_texts()
         self._refresh_settings_summary()
+        self._start_update_check()
 
         self.timer = QTimer(self)
         self.timer.setInterval(1000)
@@ -195,30 +284,41 @@ class MainWindow(QMainWindow):
         header_layout.setContentsMargins(20, 18, 20, 18)
         header_layout.setSpacing(16)
 
-        title = QLabel('ELPX Translator Desktop')
-        title.setObjectName('titleLabel')
-        header_layout.addWidget(title)
+        self.title_label = QLabel('')
+        self.title_label.setObjectName('titleLabel')
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch()
 
-        settings_button = QPushButton('Configuracion')
-        settings_button.clicked.connect(self._open_settings)
-        header_layout.addWidget(settings_button)
+        self.settings_button = QPushButton('')
+        self.settings_button.clicked.connect(self._open_settings)
+        header_layout.addWidget(self.settings_button)
 
-        self.status_chip = QLabel('En espera')
+        self.about_button = QPushButton('')
+        self.about_button.clicked.connect(self._open_about_dialog)
+        header_layout.addWidget(self.about_button)
+
+        self.status_chip = QLabel('')
         self.status_chip.setObjectName('statusChip')
         header_layout.addWidget(self.status_chip)
         root_layout.addWidget(header_card)
+
+        self.update_banner = QLabel('')
+        self.update_banner.setObjectName('infoLabel')
+        self.update_banner.setOpenExternalLinks(True)
+        self.update_banner.setWordWrap(True)
+        self.update_banner.hide()
+        root_layout.addWidget(self.update_banner)
 
         stats_card = self._make_card()
         stats_layout = QVBoxLayout(stats_card)
         stats_layout.setContentsMargins(20, 18, 20, 18)
         stats_layout.setSpacing(10)
 
-        self.elapsed_label = QLabel('Tiempo transcurrido: 00:00')
+        self.elapsed_label = QLabel('')
         self.elapsed_label.setObjectName('infoLabel')
         stats_layout.addWidget(self.elapsed_label)
 
-        self.eta_label = QLabel('Tiempo restante estimado: --:--')
+        self.eta_label = QLabel('')
         self.eta_label.setObjectName('infoLabel')
         stats_layout.addWidget(self.eta_label)
 
@@ -239,7 +339,7 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(stats_card)
 
-        self.current_message_label = QLabel('Selecciona un archivo y arranca la traduccion.')
+        self.current_message_label = QLabel('')
         self.current_message_label.setObjectName('messageLabel')
         self.current_message_label.setWordWrap(True)
         root_layout.addWidget(self.current_message_label)
@@ -254,24 +354,26 @@ class MainWindow(QMainWindow):
         controls_layout.setHorizontalSpacing(10)
         controls_layout.setVerticalSpacing(12)
 
-        controls_layout.addWidget(self._make_field_label('Archivo .elpx'), 0, 0)
+        self.file_label = self._make_field_label('')
+        controls_layout.addWidget(self.file_label, 0, 0)
         self.file_edit = QLineEdit()
-        self.file_edit.setPlaceholderText('Selecciona el archivo .elpx a traducir')
         controls_layout.addWidget(self.file_edit, 1, 0, 1, 3)
-        open_button = QPushButton('Abrir...')
-        open_button.clicked.connect(self._choose_file)
-        controls_layout.addWidget(open_button, 1, 3)
+        self.open_button = QPushButton('')
+        self.open_button.clicked.connect(self._choose_file)
+        controls_layout.addWidget(self.open_button, 1, 3)
 
-        controls_layout.addWidget(self._make_field_label('Salida'), 2, 0)
+        self.output_label = self._make_field_label('')
+        controls_layout.addWidget(self.output_label, 2, 0)
         self.output_edit = QLineEdit()
-        self.output_edit.setPlaceholderText('Ruta del archivo traducido')
         controls_layout.addWidget(self.output_edit, 3, 0, 1, 3)
-        save_button = QPushButton('Guardar como...')
-        save_button.clicked.connect(self._choose_output)
-        controls_layout.addWidget(save_button, 3, 3)
+        self.save_button = QPushButton('')
+        self.save_button.clicked.connect(self._choose_output)
+        controls_layout.addWidget(self.save_button, 3, 3)
 
-        controls_layout.addWidget(self._make_field_label('Origen'), 4, 0)
-        controls_layout.addWidget(self._make_field_label('Destino'), 4, 1)
+        self.source_label = self._make_field_label('')
+        self.target_label = self._make_field_label('')
+        controls_layout.addWidget(self.source_label, 4, 0)
+        controls_layout.addWidget(self.target_label, 4, 1)
 
         self.origin_combo = QComboBox()
         self.target_combo = QComboBox()
@@ -286,12 +388,12 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.origin_combo, 5, 0)
         controls_layout.addWidget(self.target_combo, 5, 1)
 
-        self.translate_button = QPushButton('Traducir archivo')
+        self.translate_button = QPushButton('')
         self.translate_button.setObjectName('primaryButton')
         self.translate_button.clicked.connect(self._start_translation)
         controls_layout.addWidget(self.translate_button, 5, 3)
 
-        self.stop_button = QPushButton('Parar')
+        self.stop_button = QPushButton('')
         self.stop_button.clicked.connect(self._cancel_translation)
         self.stop_button.setEnabled(False)
         controls_layout.addWidget(self.stop_button, 5, 2)
@@ -306,8 +408,8 @@ class MainWindow(QMainWindow):
         log_layout.setContentsMargins(20, 18, 20, 18)
         log_layout.setSpacing(8)
 
-        log_title = self._make_field_label('Registro')
-        log_layout.addWidget(log_title)
+        self.log_title = self._make_field_label('')
+        log_layout.addWidget(self.log_title)
 
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
@@ -443,9 +545,9 @@ class MainWindow(QMainWindow):
     def _choose_file(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
             self,
-            'Seleccionar archivo .elpx',
+            tr(self.ui_language, 'select_file_dialog'),
             str(self.last_directory),
-            'Archivos ELPX (*.elpx)',
+            tr(self.ui_language, 'elpx_files'),
         )
         if not filename:
             return
@@ -465,13 +567,13 @@ class MainWindow(QMainWindow):
             suggested_output = self._build_output_path(input_path)
         else:
             target_language = self.target_combo.currentData() or 'xx'
-            suggested_output = self.last_directory / f'archivo-{target_language}.elpx'
+            suggested_output = self.last_directory / f'{tr(self.ui_language, "default_output_basename")}-{target_language}.elpx'
 
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            'Guardar archivo traducido',
+            tr(self.ui_language, 'save_file_dialog'),
             str(suggested_output),
-            'Archivos ELPX (*.elpx)',
+            tr(self.ui_language, 'elpx_files'),
         )
         if not filename:
             return
@@ -485,13 +587,13 @@ class MainWindow(QMainWindow):
 
         input_path = Path(self.file_edit.text().strip())
         if not input_path.exists():
-            self._show_error('Selecciona un archivo .elpx valido.')
+            self._show_error(tr(self.ui_language, 'invalid_input_file'))
             return
 
         source_language = self.origin_combo.currentData()
         target_language = self.target_combo.currentData()
         if source_language == target_language:
-            self._show_error('El idioma origen y destino no pueden ser iguales.')
+            self._show_error(tr(self.ui_language, 'same_languages_error'))
             return
 
         output_text = self.output_edit.text().strip()
@@ -504,7 +606,7 @@ class MainWindow(QMainWindow):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         self._reset_run_state()
         self._set_running(True)
-        self._append_log(ProgressEvent('Preparando la traduccion...'))
+        self._append_log(ProgressEvent(tr(self.ui_language, 'preparing_translation')))
 
         self.thread = QThread(self)
         self.worker = TranslationWorker(
@@ -513,6 +615,7 @@ class MainWindow(QMainWindow):
             source_language=source_language,
             target_language=target_language,
             performance_mode=self.performance_mode,
+            ui_language=self.ui_language,
         )
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
@@ -541,10 +644,10 @@ class MainWindow(QMainWindow):
         self.transient_message = ''
         self.cancel_requested = False
         self.log_view.setPlainText('')
-        self._set_status('Trabajando')
-        self.current_message_label.setText('Preparando la traduccion...')
-        self.elapsed_label.setText('Tiempo transcurrido: 00:00')
-        self.eta_label.setText('Tiempo restante estimado: --:--')
+        self._set_status('working')
+        self.current_message_label.setText(tr(self.ui_language, 'preparing_translation'))
+        self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value='00:00'))
+        self.eta_label.setText(tr(self.ui_language, 'eta', value='--:--'))
 
     @Slot(object)
     def _handle_progress(self, event: object) -> None:
@@ -592,12 +695,20 @@ class MainWindow(QMainWindow):
         scrollbar.setValue(scrollbar.maximum())
 
     def _set_status(self, status: str) -> None:
-        self.status_chip.setText(status)
-        if status == 'Error':
+        self.current_status = status
+        status_label_map = {
+            'waiting': tr(self.ui_language, 'status_waiting'),
+            'working': tr(self.ui_language, 'status_working'),
+            'done': tr(self.ui_language, 'status_done'),
+            'error': tr(self.ui_language, 'status_error'),
+            'cancelled': tr(self.ui_language, 'status_cancelled'),
+        }
+        self.status_chip.setText(status_label_map.get(status, status))
+        if status == 'error':
             self.status_chip.setStyleSheet('background:#f8e1df;color:#a84034;border-radius:16px;padding:8px 12px;font-weight:700;')
-        elif status == 'Cancelado':
+        elif status == 'cancelled':
             self.status_chip.setStyleSheet('background:#efe8d8;color:#8a5a12;border-radius:16px;padding:8px 12px;font-weight:700;')
-        elif status == 'Listo':
+        elif status == 'done':
             self.status_chip.setStyleSheet('background:#dceee5;color:#1d6c54;border-radius:16px;padding:8px 12px;font-weight:700;')
         else:
             self.status_chip.setStyleSheet('background:#dff0e9;color:#1d6c54;border-radius:16px;padding:8px 12px;font-weight:700;')
@@ -607,10 +718,10 @@ class MainWindow(QMainWindow):
             return
 
         elapsed = int(time.time() - self.start_time)
-        self.elapsed_label.setText(f'Tiempo transcurrido: {self.format_clock(elapsed)}')
+        self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value=self.format_clock(elapsed)))
 
         if elapsed < 60 or self.completed_units < 24 or self.total_units <= 0:
-            self.eta_label.setText('Tiempo restante estimado: calculando...')
+            self.eta_label.setText(tr(self.ui_language, 'eta', value=tr(self.ui_language, 'calculating')))
             return
 
         now = time.time()
@@ -621,27 +732,29 @@ class MainWindow(QMainWindow):
             self.last_eta_update = now
 
         if self.last_eta_seconds is None:
-            self.eta_label.setText('Tiempo restante estimado: calculando...')
+            self.eta_label.setText(tr(self.ui_language, 'eta', value=tr(self.ui_language, 'calculating')))
         else:
-            self.eta_label.setText(f'Tiempo restante estimado: {self.format_clock(self.last_eta_seconds)}')
+            self.eta_label.setText(tr(self.ui_language, 'eta', value=self.format_clock(self.last_eta_seconds)))
 
     def _show_error(self, message: str) -> None:
-        self._set_status('Error')
-        QMessageBox.critical(self, 'ELPX Translator Desktop', message)
+        self._set_status('error')
+        QMessageBox.critical(self, tr(self.ui_language, 'app_title'), message)
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self.performance_mode, self)
+        dialog = SettingsDialog(self.performance_mode, self.ui_language, self)
         if dialog.exec() != QDialog.Accepted:
             return
 
+        self.ui_language = dialog.selected_ui_language()
         self.performance_mode = dialog.selected_performance_mode()
+        self.settings.setValue('ui_language', self.ui_language)
         self.settings.setValue('performance_mode', self.performance_mode)
+        self._apply_ui_texts()
         self._refresh_settings_summary()
         if self.running:
             self._append_log(
                 ProgressEvent(
-                    'La nueva configuracion se aplicara en la proxima traduccion. '
-                    'Si quieres usarla ya, pulsa Parar y vuelve a iniciar.',
+                    tr(self.ui_language, 'settings_applied_next_run'),
                 ),
             )
 
@@ -680,13 +793,20 @@ class MainWindow(QMainWindow):
 
     def _load_performance_mode(self) -> str:
         configured_value = self.settings.value('performance_mode', DEFAULT_PERFORMANCE_MODE)
-        if isinstance(configured_value, str) and configured_value in PERFORMANCE_MODE_LABELS:
+        if isinstance(configured_value, str) and configured_value in {'suave', 'equilibrado', 'rapido', 'maximo'}:
             return configured_value
         return DEFAULT_PERFORMANCE_MODE
 
+    def _load_ui_language(self) -> str:
+        configured_value = self.settings.value('ui_language')
+        if isinstance(configured_value, str) and configured_value in {code for code, _ in UI_LANGUAGE_OPTIONS}:
+            return configured_value
+        return detect_ui_language()
+
     def _refresh_settings_summary(self) -> None:
-        label = PERFORMANCE_MODE_LABELS.get(self.performance_mode, PERFORMANCE_MODE_LABELS[DEFAULT_PERFORMANCE_MODE])
-        self.settings_summary_label.setText(f'Rendimiento: {label}')
+        self.settings_summary_label.setText(
+            tr(self.ui_language, 'performance_summary', value=performance_label(self.ui_language, self.performance_mode)),
+        )
 
     def _cancel_translation(self) -> None:
         if not self.running or self.worker is None:
@@ -694,9 +814,80 @@ class MainWindow(QMainWindow):
 
         self.cancel_requested = True
         self.stop_button.setEnabled(False)
-        self.current_message_label.setText('Cancelando traduccion...')
-        self._append_log(ProgressEvent('Cancelando traduccion...', state='Cancelado', transient=True))
+        self.current_message_label.setText(tr(self.ui_language, 'canceling_translation'))
+        self._append_log(ProgressEvent(tr(self.ui_language, 'canceling_translation'), state='cancelled', transient=True))
         self.worker.request_cancel()
+
+    def _apply_ui_texts(self) -> None:
+        self.setWindowTitle(tr(self.ui_language, 'app_title'))
+        self.title_label.setText(tr(self.ui_language, 'app_title'))
+        self.settings_button.setText(tr(self.ui_language, 'settings'))
+        self.about_button.setText(tr(self.ui_language, 'about'))
+        self.file_label.setText(tr(self.ui_language, 'file_label'))
+        self.file_edit.setPlaceholderText(tr(self.ui_language, 'file_placeholder'))
+        self.open_button.setText(tr(self.ui_language, 'open_button'))
+        self.output_label.setText(tr(self.ui_language, 'output_label'))
+        self.output_edit.setPlaceholderText(tr(self.ui_language, 'output_placeholder'))
+        self.save_button.setText(tr(self.ui_language, 'save_as_button'))
+        self.source_label.setText(tr(self.ui_language, 'source_label'))
+        self.target_label.setText(tr(self.ui_language, 'target_label'))
+        self.translate_button.setText(tr(self.ui_language, 'translate_button'))
+        self.stop_button.setText(tr(self.ui_language, 'stop_button'))
+        self.log_title.setText(tr(self.ui_language, 'log_label'))
+        if not self.running:
+            self.current_message_label.setText(tr(self.ui_language, 'select_and_start'))
+            self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value='00:00'))
+            self.eta_label.setText(tr(self.ui_language, 'eta', value='--:--'))
+        self._set_status(self.current_status)
+        self._refresh_update_banner()
+
+    def _refresh_update_banner(self) -> None:
+        if not self.latest_version or not self.latest_version_url:
+            self.update_banner.hide()
+            return
+
+        self.update_banner.setText(
+            tr(
+                self.ui_language,
+                'update_available',
+                version=self.latest_version,
+                url=self.latest_version_url,
+            ),
+        )
+        self.update_banner.show()
+
+    def _start_update_check(self) -> None:
+        self.update_thread = QThread(self)
+        self.update_worker = UpdateCheckWorker()
+        self.update_worker.moveToThread(self.update_thread)
+        self.update_thread.started.connect(self.update_worker.run)
+        self.update_worker.update_found.connect(self._handle_update_found)
+        self.update_worker.finished.connect(self.update_thread.quit)
+        self.update_worker.finished.connect(self.update_worker.deleteLater)
+        self.update_thread.finished.connect(self._clear_update_thread)
+        self.update_thread.finished.connect(self.update_thread.deleteLater)
+        self.update_thread.start()
+
+    @Slot(str, str)
+    def _handle_update_found(self, version: str, url: str) -> None:
+        self.latest_version = version
+        self.latest_version_url = url
+        self._refresh_update_banner()
+
+    @Slot()
+    def _clear_update_thread(self) -> None:
+        self.update_thread = None
+        self.update_worker = None
+
+    def _open_about_dialog(self) -> None:
+        dialog = AboutDialog(self.ui_language, self)
+        dialog.exec()
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        if self.update_thread is not None and self.update_thread.isRunning():
+            self.update_thread.quit()
+            self.update_thread.wait(2000)
+        super().closeEvent(event)
 
     @staticmethod
     def format_clock(total_seconds: int) -> str:

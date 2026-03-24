@@ -4,10 +4,14 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'elpx-translator-desktop'
-version = '0.1.0'
+version = '0.1.1'
 description = 'Aplicacion de escritorio para traducir archivos .elpx localmente'
 readme = 'README.md'
 requires-python = '>=3.11'
+license = {text = 'AGPL-3.0-or-later'}
+authors = [
+    {name = 'Juan José de Haro'},
+]
 dependencies = [
     'beautifulsoup4>=4.12',
     'ctranslate2>=4.5',
@@ -25,6 +29,11 @@ build = [
 
 [project.scripts]
 elpx-translator-desktop = 'elpx_translator_desktop.app:main'
+
+[project.urls]
+Homepage = 'https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io'
+Repository = 'https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io'
+Releases = 'https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/releases'
 
 [tool.setuptools]
 package-dir = {'' = 'src'}

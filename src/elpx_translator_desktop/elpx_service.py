@@ -13,12 +13,14 @@ from .config import EXCLUDED_HTML_TAGS, HTML_TRANSLATABLE_ATTRIBUTES, JSON_SKIP_
 from .progress import ProgressEvent, TranslationCancelledError
 from .text_utils import is_translatable_text, looks_like_html, looks_like_reference
 from .translator_engine import TranslationEngine
+from .ui_i18n import tr
 
 
 @dataclass
 class TranslationOptions:
     source_language: str
     target_language: str
+    ui_language: str = 'es'
     should_cancel: object | None = None
 
 
@@ -78,19 +80,19 @@ class ElpxTranslationService:
 
     def translate_file(self, input_path: Path, output_path: Path, options: TranslationOptions, progress_callback) -> None:
         self._raise_if_cancelled(options)
-        progress_callback(ProgressEvent('Abriendo el archivo .elpx...'))
+        progress_callback(ProgressEvent(tr(options.ui_language, 'opening_elpx')))
         with zipfile.ZipFile(input_path, 'r') as archive:
             content_xml_path = self._find_content_xml_path(archive.namelist())
             if not content_xml_path:
-                raise ValueError('No se ha encontrado content.xml dentro del .elpx.')
+                raise ValueError(tr(options.ui_language, 'content_xml_missing'))
 
             self._raise_if_cancelled(options)
-            progress_callback(ProgressEvent('Leyendo content.xml...'))
+            progress_callback(ProgressEvent(tr(options.ui_language, 'reading_content_xml')))
             xml_content = archive.read(content_xml_path).decode('utf-8')
             translated_xml = self._translate_content_xml(xml_content, options, progress_callback)
 
             self._raise_if_cancelled(options)
-            progress_callback(ProgressEvent('Reconstruyendo el .elpx traducido...'))
+            progress_callback(ProgressEvent(tr(options.ui_language, 'rebuilding_elpx')))
             with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as destination:
                 for member in archive.infolist():
                     self._raise_if_cancelled(options)
@@ -100,7 +102,7 @@ class ElpxTranslationService:
                     destination.writestr(member, data)
 
         self._raise_if_cancelled(options)
-        progress_callback(ProgressEvent('Archivo listo para descargar.', state='Listo', progress_percent=100))
+        progress_callback(ProgressEvent(tr(options.ui_language, 'file_ready'), state='done', progress_percent=100))
 
     def _translate_content_xml(self, xml_content: str, options: TranslationOptions, progress_callback) -> str:
         document = minidom.parseString(xml_content.encode('utf-8'))
@@ -109,15 +111,22 @@ class ElpxTranslationService:
         tracker = ProgressTracker(total_units, progress_callback)
 
         if total_units == 0:
-            tracker.report('No se ha detectado texto traducible en content.xml.')
+            tracker.report(tr(options.ui_language, 'no_translatable_text'))
             return xml_content
 
-        tracker.report(f'Se han detectado {total_units} unidades traducibles en {len(components)} iDevices.')
+        tracker.report(
+            tr(
+                options.ui_language,
+                'detected_units',
+                total_units=total_units,
+                component_count=len(components),
+            ),
+        )
         self._translate_structural_nodes(document, tracker, options)
 
         for index, component in enumerate(components, start=1):
             self._raise_if_cancelled(options)
-            tracker.report(f'Preparando iDevice {index} de {len(components)}...')
+            tracker.report(tr(options.ui_language, 'preparing_idevice', index=index, total=len(components)))
             self._translate_component(component, tracker, options, index, len(components))
 
         return self._serialize_document(document, xml_content)
@@ -142,30 +151,30 @@ class ElpxTranslationService:
                 translated = self._translate_json_value(parsed, tracker, options, progress_label)
                 self._replace_node_with_cdata(json_nodes[0], json.dumps(translated, ensure_ascii=False))
             except json.JSONDecodeError:
-                tracker.report('Se ha omitido un jsonProperties invalido para no romper el .elpx.')
+                tracker.report(tr(options.ui_language, 'invalid_json_properties'))
 
     def _translate_structural_nodes(self, document, tracker: ProgressTracker, options: TranslationOptions) -> None:
         page_name_nodes = self._get_text_nodes_by_tag(document, 'pageName')
         if page_name_nodes:
-            translated = self._translate_plain_texts(page_name_nodes, tracker, options, 'Titulos de pagina')
+            translated = self._translate_plain_texts(page_name_nodes, tracker, options, tr(options.ui_language, 'page_titles'))
             for node, text in translated:
                 self._replace_node_text(node, text)
 
         block_name_nodes = self._get_text_nodes_by_tag(document, 'blockName')
         if block_name_nodes:
-            translated = self._translate_plain_texts(block_name_nodes, tracker, options, 'Titulos de bloque')
+            translated = self._translate_plain_texts(block_name_nodes, tracker, options, tr(options.ui_language, 'block_titles'))
             for node, text in translated:
                 self._replace_node_text(node, text)
 
         nav_title_nodes = self._get_property_value_nodes(document, 'odeNavStructureProperty', {'titlePage'})
         if nav_title_nodes:
-            translated = self._translate_plain_texts(nav_title_nodes, tracker, options, 'Titulos de navegacion')
+            translated = self._translate_plain_texts(nav_title_nodes, tracker, options, tr(options.ui_language, 'navigation_titles'))
             for node, text in translated:
                 self._replace_node_text(node, text)
 
         project_meta_nodes = self._get_property_value_nodes(document, 'odeProperty', {'pp_title', 'pp_description'})
         if project_meta_nodes:
-            translated = self._translate_plain_texts(project_meta_nodes, tracker, options, 'Metadatos del proyecto')
+            translated = self._translate_plain_texts(project_meta_nodes, tracker, options, tr(options.ui_language, 'project_metadata'))
             for node, text in translated:
                 self._replace_node_text(node, text)
 
@@ -439,4 +448,4 @@ class ElpxTranslationService:
     @staticmethod
     def _raise_if_cancelled(options: TranslationOptions) -> None:
         if callable(options.should_cancel) and options.should_cancel():
-            raise TranslationCancelledError('Traduccion cancelada por el usuario.')
+            raise TranslationCancelledError(tr(options.ui_language, 'translation_cancelled'))

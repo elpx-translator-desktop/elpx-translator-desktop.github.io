@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 LANGUAGE_OPTIONS = [
-    ('es', 'Espanol'),
+    ('es', 'Español'),
     ('en', 'English'),
-    ('fr', 'Francais'),
+    ('fr', 'Français'),
     ('de', 'Deutsch'),
     ('it', 'Italiano'),
-    ('pt', 'Portugues'),
-    ('ca', 'Catala'),
+    ('pt', 'Português'),
+    ('ca', 'Català'),
     ('gl', 'Galego'),
 ]
 SUPPORTED_LANGUAGE_CODES = {code for code, _ in LANGUAGE_OPTIONS}
@@ -21,8 +21,8 @@ DEFAULT_PERFORMANCE_MODE = 'equilibrado'
 PERFORMANCE_MODE_OPTIONS = [
     ('suave', 'Suave'),
     ('equilibrado', 'Equilibrado'),
-    ('rapido', 'Rapido'),
-    ('maximo', 'Maximo'),
+    ('rapido', 'Rápido'),
+    ('maximo', 'Máximo'),
 ]
 PERFORMANCE_MODE_LABELS = dict(PERFORMANCE_MODE_OPTIONS)
 
