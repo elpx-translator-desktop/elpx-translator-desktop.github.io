@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=ELPX Translator Desktop
+Comment=Translate .elpx projects locally
+Exec=elpx-translator-desktop
+Terminal=false
+Categories=Education;Utility;

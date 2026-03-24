@@ -38,11 +38,11 @@ pyinstaller --name ELPXTranslatorDesktop --windowed --noconfirm --clean src/elpx
 
 Notas:
 
-- Linux genera un build para Linux.
-- Windows genera un build para Windows.
-- macOS genera un build para macOS.
+- Linux genera un paquete `.deb`.
+- Windows genera un instalador `.exe`.
+- macOS genera una imagen `.dmg`.
 - La primera ejecucion seguira descargando el modelo si no esta en la cache local del usuario.
-- GitHub Actions genera artefactos para Linux, Windows y macOS.
+- GitHub Actions genera artefactos nativos para Linux, Windows y macOS en cada release.
 
 ## Notas
 

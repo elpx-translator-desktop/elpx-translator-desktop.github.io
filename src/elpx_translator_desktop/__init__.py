@@ -6,7 +6,7 @@ __all__ = [
     'PROJECT_REPOSITORY_URL',
 ]
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 PROJECT_AUTHOR = 'Juan José de Haro'
 PROJECT_LICENSE_NAME = 'GNU Affero General Public License v3.0 or later'
 PROJECT_REPOSITORY_URL = 'https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io'

@@ -9,22 +9,8 @@ permissions:
     contents: write
 
 jobs:
-    build:
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - os: ubuntu-latest
-                      artifact_name: elpx-translator-desktop-linux
-                      archive_name: elpx-translator-desktop-linux
-                    - os: windows-latest
-                      artifact_name: elpx-translator-desktop-windows
-                      archive_name: elpx-translator-desktop-windows
-                    - os: macos-latest
-                      artifact_name: elpx-translator-desktop-macos
-                      archive_name: elpx-translator-desktop-macos
-
-        runs-on: ${{ matrix.os }}
+    build-linux:
+        runs-on: ubuntu-latest
 
         steps:
             - name: Checkout
@@ -35,61 +21,176 @@ jobs:
               with:
                   python-version: '3.11'
 
-            - name: Install Linux system dependencies
-              if: runner.os == 'Linux'
+            - name: Install system dependencies
               run: |
                   sudo apt-get update
                   sudo apt-get install -y libegl1 libxkbcommon-x11-0 libdbus-1-3
 
             - name: Install Python dependencies
               run: |
-                  python -m pip install --upgrade pip
+                  python3 -m pip install --upgrade pip
                   pip install -e .[build]
+
+            - name: Detect app version
+              id: version
+              run: |
+                  APP_VERSION="$(python3 - <<'PY'
+                  import sys
+                  sys.path.insert(0, 'src')
+                  from elpx_translator_desktop import __version__
+                  print(__version__)
+                  PY
+                  )"
+                  echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
 
             - name: Build app
               run: |
                   pyinstaller --name ELPXTranslatorDesktop --windowed --noconfirm --clean src/elpx_translator_desktop/app.py
 
-            - name: Archive Linux artifact
-              if: runner.os == 'Linux'
+            - name: Build Debian package
               run: |
-                  cd dist
-                  tar -czf ../${{ matrix.archive_name }}.tar.gz ELPXTranslatorDesktop
-
-            - name: Archive macOS artifact
-              if: runner.os == 'macOS'
-              run: |
-                  cd dist
-                  ditto -c -k --sequesterRsrc --keepParent ELPXTranslatorDesktop.app ../${{ matrix.archive_name }}.zip
-
-            - name: Archive Windows artifact
-              if: runner.os == 'Windows'
-              shell: pwsh
-              run: |
-                  Compress-Archive -Path dist/ELPXTranslatorDesktop/* -DestinationPath ${{ matrix.archive_name }}.zip
+                  APP_VERSION="${{ steps.version.outputs.app_version }}"
+                  ARCH="$(dpkg --print-architecture)"
+                  PKG_ROOT="package-root"
+                  APP_DIR="$PKG_ROOT/usr/lib/elpx-translator-desktop"
+                  mkdir -p "$APP_DIR" "$PKG_ROOT/usr/bin" "$PKG_ROOT/DEBIAN" "$PKG_ROOT/usr/share/applications" "$PKG_ROOT/usr/share/doc/elpx-translator-desktop"
+                  cp -a dist/ELPXTranslatorDesktop/. "$APP_DIR/"
+                  cp packaging/linux/elpx-translator-desktop.desktop "$PKG_ROOT/usr/share/applications/"
+                  cp LICENSE "$PKG_ROOT/usr/share/doc/elpx-translator-desktop/LICENSE"
+                  cat > "$PKG_ROOT/usr/bin/elpx-translator-desktop" <<'SH'
+                  #!/bin/sh
+                  exec /usr/lib/elpx-translator-desktop/ELPXTranslatorDesktop "$@"
+                  SH
+                  chmod 755 "$PKG_ROOT/usr/bin/elpx-translator-desktop"
+                  cat > "$PKG_ROOT/DEBIAN/control" <<EOF
+                  Package: elpx-translator-desktop
+                  Version: ${APP_VERSION}
+                  Section: education
+                  Priority: optional
+                  Architecture: ${ARCH}
+                  Maintainer: Juan José de Haro
+                  Depends: libegl1, libxkbcommon-x11-0, libdbus-1-3
+                  Description: Desktop app to translate .elpx projects locally
+                   Translate .elpx projects locally on Linux, Windows, and macOS.
+                  EOF
+                  dpkg-deb --build --root-owner-group "$PKG_ROOT" "elpx-translator-desktop_${APP_VERSION}_${ARCH}.deb"
 
             - name: Upload build artifact
-              if: runner.os == 'Linux'
               uses: actions/upload-artifact@v4
               with:
-                  name: ${{ matrix.artifact_name }}
-                  path: ${{ matrix.archive_name }}.tar.gz
+                  name: elpx-translator-desktop-linux-deb
+                  path: elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
 
-            - name: Attach artifacts to release
-              if: github.event_name == 'release' && runner.os == 'Linux'
+            - name: Attach release asset
+              if: github.event_name == 'release'
               uses: softprops/action-gh-release@v2
               with:
-                  files: ${{ matrix.archive_name }}.tar.gz
+                  files: elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+
+    build-windows:
+        runs-on: windows-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.11'
+
+            - name: Install Python dependencies
+              shell: bash
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -e .[build]
+
+            - name: Detect app version
+              id: version
+              shell: bash
+              run: |
+                  APP_VERSION="$(python3 - <<'PY'
+                  import sys
+                  sys.path.insert(0, 'src')
+                  from elpx_translator_desktop import __version__
+                  print(__version__)
+                  PY
+                  )"
+                  echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
+            - name: Build app
+              shell: bash
+              run: |
+                  pyinstaller --name ELPXTranslatorDesktop --windowed --noconfirm --clean src/elpx_translator_desktop/app.py
+
+            - name: Install Inno Setup
+              shell: powershell
+              run: choco install innosetup --no-progress --yes
+
+            - name: Build installer
+              shell: powershell
+              run: |
+                  New-Item -ItemType Directory -Force -Path dist-installer | Out-Null
+                  & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.version.outputs.app_version }}" "/DMyAppSource=$env:GITHUB_WORKSPACE\dist\ELPXTranslatorDesktop" "/DMyOutputDir=$env:GITHUB_WORKSPACE\dist-installer" "packaging\windows\installer.iss"
 
             - name: Upload build artifact
-              if: runner.os == 'Windows' || runner.os == 'macOS'
               uses: actions/upload-artifact@v4
               with:
-                  name: ${{ matrix.artifact_name }}
-                  path: ${{ matrix.archive_name }}.zip
+                  name: elpx-translator-desktop-windows-exe
+                  path: dist-installer/elpx-translator-desktop-windows-${{ steps.version.outputs.app_version }}.exe
 
-            - name: Attach artifacts to release
-              if: github.event_name == 'release' && (runner.os == 'Windows' || runner.os == 'macOS')
+            - name: Attach release asset
+              if: github.event_name == 'release'
               uses: softprops/action-gh-release@v2
               with:
-                  files: ${{ matrix.archive_name }}.zip
+                  files: dist-installer/elpx-translator-desktop-windows-${{ steps.version.outputs.app_version }}.exe
+
+    build-macos:
+        runs-on: macos-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.11'
+
+            - name: Install Python dependencies
+              run: |
+                  python3 -m pip install --upgrade pip
+                  pip install -e .[build]
+
+            - name: Detect app version
+              id: version
+              run: |
+                  APP_VERSION="$(python3 - <<'PY'
+                  import sys
+                  sys.path.insert(0, 'src')
+                  from elpx_translator_desktop import __version__
+                  print(__version__)
+                  PY
+                  )"
+                  echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
+            - name: Build app
+              run: |
+                  pyinstaller --name ELPXTranslatorDesktop --windowed --noconfirm --clean src/elpx_translator_desktop/app.py
+
+            - name: Build DMG
+              run: |
+                  APP_VERSION="${{ steps.version.outputs.app_version }}"
+                  hdiutil create -volname "ELPX Translator Desktop" -srcfolder "dist/ELPXTranslatorDesktop.app" -ov -format UDZO "elpx-translator-desktop-macos-${APP_VERSION}.dmg"
+
+            - name: Upload build artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: elpx-translator-desktop-macos-dmg
+                  path: elpx-translator-desktop-macos-${{ steps.version.outputs.app_version }}.dmg
+
+            - name: Attach release asset
+              if: github.event_name == 'release'
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: elpx-translator-desktop-macos-${{ steps.version.outputs.app_version }}.dmg
