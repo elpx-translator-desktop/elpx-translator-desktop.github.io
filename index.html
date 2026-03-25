@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ELPX Translator Desktop</title>
+  <meta name="description" content="Aplicación de escritorio para traducir archivos .elpx de forma local, pensada para profesorado y usuarios no técnicos.">
+  <link rel="icon" href="src/elpx_translator_desktop/assets/elpx-translator-desktop.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="docs/site.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="topbar">
+      <div class="brand">
+        <img src="src/elpx_translator_desktop/assets/elpx-translator-desktop.svg" alt="" class="brand-icon">
+        <span>ELPX Translator Desktop</span>
+      </div>
+      <div class="top-links">
+        <a href="#descargas">Descargas</a>
+        <a href="#capturas">Capturas</a>
+        <a href="#privacidad">Privacidad</a>
+        <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues">Sugerencias y errores</a>
+      </div>
+    </nav>
+
+    <section class="hero-body">
+      <div class="hero-copy">
+        <p class="eyebrow">Para profesorado y personas no técnicas</p>
+        <h1>Traduce archivos <code>.elpx</code> en tu propio ordenador</h1>
+        <p class="lead">
+          ELPX Translator Desktop sirve para traducir proyectos de eXeLearning sin depender de servicios externos.
+          Está pensado para ahorrar tiempo al adaptar materiales ya creados a otro idioma.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#descargas">Ver descargas</a>
+          <a class="button button-secondary" href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues">Informar de una sugerencia o problema</a>
+        </div>
+        <ul class="hero-points">
+          <li>Funciona en Linux, Windows y macOS.</li>
+          <li>Procesa el contenido del archivo en tu equipo.</li>
+          <li>Interfaz sencilla, pensada para uso real en el aula.</li>
+        </ul>
+      </div>
+      <div class="hero-shot">
+        <img src="docs/assets/screenshots/main-window.png" alt="Ventana principal de ELPX Translator Desktop">
+      </div>
+    </section>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="section-header">
+        <p class="eyebrow">Qué es</p>
+        <h2>Una herramienta para traducir materiales de eXeLearning con menos trabajo manual</h2>
+      </div>
+      <div class="grid three">
+        <article class="card">
+          <h3>Qué hace</h3>
+          <p>Abre un archivo <code>.elpx</code>, detecta el texto traducible y genera una copia en el idioma que elijas.</p>
+        </article>
+        <article class="card">
+          <h3>Para quién está pensada</h3>
+          <p>Sobre todo para docentes que ya tienen materiales creados y quieren reutilizarlos sin volver a traducir todo a mano.</p>
+        </article>
+        <article class="card">
+          <h3>Qué no necesitas</h3>
+          <p>No hace falta saber programar, usar terminal ni entender detalles técnicos sobre modelos de IA.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="descargas" class="section section-alt">
+      <div class="section-header">
+        <p class="eyebrow">Descargas</p>
+        <h2>Versiones disponibles</h2>
+        <p>La página consulta GitHub Releases y muestra la versión estable más reciente y la última beta disponible.</p>
+      </div>
+
+      <div class="release-grid">
+        <article class="release-card" id="stable-release">
+          <div class="release-card-header">
+            <p class="release-label">Versión estable</p>
+            <h3>Cargando...</h3>
+          </div>
+          <p class="release-copy">La opción recomendada para la mayoría de personas.</p>
+          <div class="download-links"></div>
+        </article>
+
+        <article class="release-card release-card-beta" id="beta-release">
+          <div class="release-card-header">
+            <p class="release-label">Última beta</p>
+            <h3>Cargando...</h3>
+          </div>
+          <p class="release-copy">Si quieres probar antes los cambios más recientes y ayudarnos a detectar fallos.</p>
+          <div class="download-links"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <p class="eyebrow">Cómo se usa</p>
+        <h2>Tres pasos</h2>
+      </div>
+      <div class="steps">
+        <article class="step">
+          <span class="step-number">1</span>
+          <h3>Abre tu archivo</h3>
+          <p>Selecciona el proyecto <code>.elpx</code> que quieres traducir.</p>
+        </article>
+        <article class="step">
+          <span class="step-number">2</span>
+          <h3>Elige idiomas</h3>
+          <p>Marca el idioma de origen y el idioma de destino.</p>
+        </article>
+        <article class="step">
+          <span class="step-number">3</span>
+          <h3>Genera la copia traducida</h3>
+          <p>La aplicación crea un nuevo archivo para que puedas revisarlo y seguir trabajándolo en eXeLearning.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="capturas" class="section">
+      <div class="section-header">
+        <p class="eyebrow">Capturas</p>
+        <h2>La aplicación por dentro</h2>
+      </div>
+      <div class="gallery">
+        <figure class="shot-card">
+          <img src="docs/assets/screenshots/main-window.png" alt="Pantalla principal de la aplicación">
+          <figcaption>Pantalla principal: archivo de entrada, idioma de origen, idioma de destino y progreso.</figcaption>
+        </figure>
+        <figure class="shot-card">
+          <img src="docs/assets/screenshots/about-window.png" alt="Ventana con información de la aplicación">
+          <figcaption>La propia aplicación incluye información sobre el proyecto y acceso a soporte.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="privacidad" class="section section-alt">
+      <div class="section-header">
+        <p class="eyebrow">Privacidad e IA</p>
+        <h2>Explicado de forma simple</h2>
+      </div>
+      <div class="grid two">
+        <article class="card">
+          <h3>Cómo usa la IA</h3>
+          <p>La aplicación usa un modelo abierto de traducción para proponer el texto en otro idioma. Su trabajo es ayudarte con la traducción automática del contenido del proyecto.</p>
+          <p>El modelo base es <strong>M2M100 418M</strong>, publicado por <strong>Facebook AI</strong>. La aplicación usa una versión optimizada para que funcione con más agilidad en equipos normales.</p>
+        </article>
+        <article class="card">
+          <h3>Qué pasa con tus datos</h3>
+          <p>El contenido del archivo se procesa en tu ordenador durante la traducción.</p>
+          <p>No envía tu proyecto a un servicio externo para traducirlo. Solo puede conectarse a internet para descargar el modelo la primera vez y para comprobar si hay nuevas versiones.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <p class="eyebrow">Preguntas habituales</p>
+        <h2>Lo importante antes de empezar</h2>
+      </div>
+      <div class="faq">
+        <article class="faq-item">
+          <h3>¿Es un proyecto oficial del INTEF o de eXeLearning?</h3>
+          <p>No. Es un proyecto independiente y no está afiliado oficialmente con el INTEF ni con eXeLearning.</p>
+        </article>
+        <article class="faq-item">
+          <h3>¿Necesito internet siempre?</h3>
+          <p>No. La primera vez puede hacer falta para descargar el modelo y también para comprobar si hay nuevas versiones. Después, la traducción trabaja en local.</p>
+        </article>
+        <article class="faq-item">
+          <h3>¿Sirve para cualquier archivo perfecto a la primera?</h3>
+          <p>No conviene prometer eso. La aplicación está pensada para ahorrar mucho trabajo, pero siempre es recomendable revisar el resultado final antes de publicarlo.</p>
+        </article>
+        <article class="faq-item">
+          <h3>¿Qué hago si algo sale mal?</h3>
+          <p>Usa el enlace de sugerencias y errores. Si puedes, indica qué sistema operativo usas y adjunta el archivo o una explicación breve del problema.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>ELPX Translator Desktop es un proyecto independiente para traducir archivos <code>.elpx</code>.</p>
+    <p>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io">Repositorio</a>
+      <span>·</span>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/releases">Releases</a>
+      <span>·</span>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues">Sugerencias y errores</a>
+    </p>
+  </footer>
+
+  <script src="docs/site.js"></script>
+</body>
+</html>
