@@ -1068,12 +1068,37 @@ class MainWindow(QMainWindow):
 
 def main() -> None:
     app = QApplication(sys.argv)
-    icon_path = resources.files('elpx_translator_desktop.assets').joinpath('elpx-translator-desktop.svg')
-    app.setWindowIcon(QIcon(str(icon_path)))
+    icon_path = _resolve_app_icon_path()
+    if icon_path is not None:
+        app.setWindowIcon(QIcon(str(icon_path)))
     window = MainWindow()
     window.setWindowIcon(app.windowIcon())
     window.show()
     sys.exit(app.exec())
+
+
+def _resolve_app_icon_path() -> Path | None:
+    icon_name = 'elpx-translator-desktop.svg'
+
+    if getattr(sys, 'frozen', False):
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            for candidate in (
+                Path(meipass) / 'elpx_translator_desktop' / 'assets' / icon_name,
+                Path(meipass) / 'assets' / icon_name,
+            ):
+                if candidate.exists():
+                    return candidate
+
+    try:
+        icon_path = resources.files('elpx_translator_desktop.assets').joinpath(icon_name)
+        if icon_path.is_file():
+            return Path(icon_path)
+    except (ModuleNotFoundError, FileNotFoundError, AttributeError):
+        pass
+
+    fallback = Path(__file__).resolve().parent / 'assets' / icon_name
+    return fallback if fallback.exists() else None
 
 
 if __name__ == '__main__':

@@ -23,6 +23,16 @@ class AppImportTests(unittest.TestCase):
 
         self.assertEqual(module.__name__, 'app')
 
+    def test_app_icon_path_resolves_in_source_tree(self) -> None:
+        from elpx_translator_desktop.app import _resolve_app_icon_path
+
+        icon_path = _resolve_app_icon_path()
+
+        self.assertIsNotNone(icon_path)
+        assert icon_path is not None
+        self.assertTrue(icon_path.exists())
+        self.assertEqual(icon_path.name, 'elpx-translator-desktop.svg')
+
 
 if __name__ == '__main__':
     unittest.main()
