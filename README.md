@@ -33,12 +33,17 @@ El binario final se debe construir en cada sistema operativo de destino:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[build]
-pyinstaller --name ELPXTranslatorDesktop --windowed --noconfirm --clean src/elpx_translator_desktop/app.py
+wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+chmod +x appimagetool-x86_64.AppImage
+APPIMAGE_TOOL="./appimagetool-x86_64.AppImage --appimage-extract-and-run" ./packaging/linux/build-linux-artifacts.sh
 ```
 
 Notas:
 
 - Linux genera un paquete `.deb`.
+- Linux genera tambien una `AppImage` para distribucion mas portable entre distros.
+- El build de Linux valida la `glibc` requerida por el `libpython` empaquetado. Por defecto exige una linea base maxima `2.35`, para que el `.deb` siga siendo instalable en Ubuntu 22.04+, Debian 12 / MX Linux 23 y otras distros con `glibc` compatible.
+- Si necesitas otra politica de compatibilidad, puedes ajustar `GLIBC_BASELINE`, pero el paquete siempre debe construirse en una distro igual o mas antigua que la minima soportada.
 - Windows genera un instalador `.exe`.
 - macOS genera una imagen `.dmg`.
 - La primera ejecucion seguira descargando el modelo si no esta en la cache local del usuario.

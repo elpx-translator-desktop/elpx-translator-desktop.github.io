@@ -10,7 +10,7 @@ permissions:
 
 jobs:
     build-linux:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
 
         steps:
             - name: Checkout
@@ -24,7 +24,7 @@ jobs:
             - name: Install system dependencies
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y libegl1 libxkbcommon-x11-0 libdbus-1-3
+                  sudo apt-get install -y libegl1 libxkbcommon-x11-0 libdbus-1-3 wget
 
             - name: Install Python dependencies
               run: |
@@ -43,50 +43,30 @@ jobs:
                   )"
                   echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
 
-            - name: Build app
+            - name: Download appimagetool
               run: |
-                  pyinstaller --name ELPXTranslatorDesktop --windowed --noconfirm --clean --add-data "src/elpx_translator_desktop/assets:elpx_translator_desktop/assets" src/elpx_translator_desktop/app.py
+                  wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+                  chmod +x appimagetool-x86_64.AppImage
 
-            - name: Build Debian package
+            - name: Build Linux artifacts
               run: |
-                  APP_VERSION="${{ steps.version.outputs.app_version }}"
-                  ARCH="$(dpkg --print-architecture)"
-                  PKG_ROOT="package-root"
-                  APP_DIR="$PKG_ROOT/usr/lib/elpx-translator-desktop"
-                  mkdir -p "$APP_DIR" "$PKG_ROOT/usr/bin" "$PKG_ROOT/DEBIAN" "$PKG_ROOT/usr/share/applications" "$PKG_ROOT/usr/share/doc/elpx-translator-desktop" "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps"
-                  cp -a dist/ELPXTranslatorDesktop/. "$APP_DIR/"
-                  cp packaging/linux/elpx-translator-desktop.desktop "$PKG_ROOT/usr/share/applications/"
-                  cp src/elpx_translator_desktop/assets/elpx-translator-desktop.svg "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/"
-                  cp LICENSE "$PKG_ROOT/usr/share/doc/elpx-translator-desktop/LICENSE"
-                  cat > "$PKG_ROOT/usr/bin/elpx-translator-desktop" <<'SH'
-                  #!/bin/sh
-                  exec /usr/lib/elpx-translator-desktop/ELPXTranslatorDesktop "$@"
-                  SH
-                  chmod 755 "$PKG_ROOT/usr/bin/elpx-translator-desktop"
-                  cat > "$PKG_ROOT/DEBIAN/control" <<EOF
-                  Package: elpx-translator-desktop
-                  Version: ${APP_VERSION}
-                  Section: education
-                  Priority: optional
-                  Architecture: ${ARCH}
-                  Maintainer: Juan José de Haro
-                  Depends: libegl1, libxkbcommon-x11-0, libdbus-1-3
-                  Description: Desktop app to translate .elpx projects locally
-                   Translate .elpx projects locally on Linux, Windows, and macOS.
-                  EOF
-                  dpkg-deb --build --root-owner-group "$PKG_ROOT" "elpx-translator-desktop_${APP_VERSION}_${ARCH}.deb"
+                  GLIBC_BASELINE=2.35 APPIMAGE_TOOL="./appimagetool-x86_64.AppImage --appimage-extract-and-run" ./packaging/linux/build-linux-artifacts.sh
 
             - name: Upload build artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: elpx-translator-desktop-linux-deb
-                  path: elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+                  name: elpx-translator-desktop-linux
+                  path: |
+                      elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+                      elpx-translator-desktop-${{ steps.version.outputs.app_version }}-*.AppImage
 
             - name: Attach release asset
               if: github.event_name == 'release'
               uses: softprops/action-gh-release@v2
               with:
-                  files: elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+                  files: |
+                      elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+                      elpx-translator-desktop-${{ steps.version.outputs.app_version }}-*.AppImage
 
     build-windows:
         runs-on: windows-latest
