@@ -212,7 +212,9 @@ class TranslationEngine:
             for batch_index, output in enumerate(translated_batch):
                 self._raise_if_cancelled(should_cancel)
                 job = batch[batch_index]
-                hypothesis = output.hypotheses[0][1:]
+                hypothesis = output.hypotheses[0]
+                if self._model_config.model_type == 'm2m100':
+                    hypothesis = hypothesis[1:]
                 text = tokenizer.decode(tokenizer.convert_tokens_to_ids(hypothesis), skip_special_tokens=True).strip()
                 results[job['result_index']].append(text or job['text'])
 
