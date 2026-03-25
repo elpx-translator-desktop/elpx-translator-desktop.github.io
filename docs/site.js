@@ -4,7 +4,8 @@ const API_URL = `https://api.github.com/repos/${REPO}/releases`;
 function pickDownloads(assets) {
   const match = (pattern) => assets.find((asset) => pattern.test(asset.name));
   return [
-    { label: "Linux", hint: ".deb", asset: match(/\.deb$/i) },
+    { label: "Linux", hint: ".deb para Debian y derivados compatibles", asset: match(/\.deb$/i) },
+    { label: "Linux", hint: "AppImage para otras distribuciones", asset: match(/\.AppImage$/i) },
     { label: "Windows", hint: ".exe", asset: match(/\.exe$/i) },
     { label: "macOS", hint: ".dmg", asset: match(/\.dmg$/i) },
   ].filter((item) => item.asset);
