@@ -11,7 +11,13 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 
 from .config import EXCLUDED_HTML_TAGS, HTML_TRANSLATABLE_ATTRIBUTES, JSON_SKIP_KEYS
 from .progress import ProgressEvent, TranslationCancelledError
-from .text_utils import is_translatable_text, looks_like_html, looks_like_reference
+from .text_utils import (
+    is_translatable_text,
+    looks_like_encoded_payload,
+    looks_like_html,
+    looks_like_reference,
+    split_surrounding_whitespace,
+)
 from .translator_engine import TranslationEngine
 from .ui_i18n import tr
 
@@ -193,15 +199,15 @@ class ElpxTranslationService:
         if root is None:
             return html
 
-        text_targets: list[NavigableString] = []
+        text_targets: list[tuple[NavigableString, str, str, str]] = []
         for text_node in root.find_all(string=True):
             parent = text_node.parent
+            text_value = str(text_node)
+            leading_ws, core_text, trailing_ws = split_surrounding_whitespace(text_value)
             if (
-                isinstance(parent, Tag)
-                and parent.name not in EXCLUDED_HTML_TAGS
-                and is_translatable_text(str(text_node))
+                self._should_translate_html_text(parent, core_text)
             ):
-                text_targets.append(text_node)
+                text_targets.append((text_node, leading_ws, core_text, trailing_ws))
 
         attribute_targets: list[tuple[Tag, str, str]] = []
         for element in root.find_all(True):
@@ -213,13 +219,13 @@ class ElpxTranslationService:
                     attribute_targets.append((element, attribute, value))
 
         translated_texts = self._translate_plain_texts(
-            [(item, str(item)) for item in text_targets],
+            [(node, core_text) for node, _, core_text, _ in text_targets],
             tracker,
             options,
             progress_label,
         )
-        for target, (_, translated) in zip(text_targets, translated_texts, strict=False):
-            target.replace_with(translated)
+        for (target, leading_ws, _, trailing_ws), (_, translated) in zip(text_targets, translated_texts, strict=False):
+            target.replace_with(f'{leading_ws}{translated}{trailing_ws}')
 
         translated_attributes = self._translate_plain_texts(
             [(item, item[2]) for item in attribute_targets],
@@ -330,7 +336,7 @@ class ElpxTranslationService:
         count = 0
         for text_node in root.find_all(string=True):
             parent = text_node.parent
-            if isinstance(parent, Tag) and parent.name not in EXCLUDED_HTML_TAGS and is_translatable_text(str(text_node)):
+            if self._should_translate_html_text(parent, str(text_node)):
                 count += 1
 
         for element in root.find_all(True):
@@ -416,9 +422,24 @@ class ElpxTranslationService:
             return True
         if looks_like_reference(trimmed):
             return True
+        if looks_like_encoded_payload(trimmed):
+            return True
         if re.fullmatch(r'[A-Za-z0-9_-]{20,}', trimmed):
             return True
         return False
+
+    @staticmethod
+    def _should_translate_html_text(parent, text: str) -> bool:
+        if not isinstance(parent, Tag):
+            return False
+        if parent.name in EXCLUDED_HTML_TAGS:
+            return False
+
+        trimmed = text.strip()
+        if looks_like_encoded_payload(trimmed):
+            return False
+
+        return is_translatable_text(trimmed)
 
     @staticmethod
     def _replace_node_with_cdata(node, text: str) -> None:

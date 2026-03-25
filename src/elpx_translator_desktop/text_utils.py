@@ -5,6 +5,8 @@ import re
 REFERENCE_RE = re.compile(r'^(asset://|https?://|mailto:|tel:|exe-node:|\{\{context_path\}\})', re.I)
 HASHLIKE_RE = re.compile(r'^[A-Za-z0-9_-]{20,}$')
 HTML_RE = re.compile(r'</?[a-z][\s\S]*>', re.I)
+PERCENT_ENCODED_CHUNK_RE = re.compile(r'%[0-9A-Fa-f]{2}')
+BASE64ISH_RE = re.compile(r'^[A-Za-z0-9+/=_-]{80,}$')
 
 
 def split_long_text(text: str, max_length: int = 420) -> list[str]:
@@ -85,3 +87,24 @@ def looks_like_reference(value: str) -> bool:
 
 def normalize_whitespace(text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
+
+
+def split_surrounding_whitespace(text: str) -> tuple[str, str, str]:
+    leading_match = re.match(r'^\s*', text)
+    trailing_match = re.search(r'\s*$', text)
+    leading = leading_match.group(0) if leading_match else ''
+    trailing = trailing_match.group(0) if trailing_match else ''
+    core = text[len(leading) : len(text) - len(trailing) if trailing else len(text)]
+    return leading, core, trailing
+
+
+def looks_like_encoded_payload(value: str) -> bool:
+    trimmed = value.strip()
+    if len(trimmed) < 32:
+        return False
+
+    percent_chunks = PERCENT_ENCODED_CHUNK_RE.findall(trimmed)
+    if percent_chunks and (len(percent_chunks) * 3) >= (len(trimmed) * 0.3):
+        return True
+
+    return bool(BASE64ISH_RE.fullmatch(trimmed))

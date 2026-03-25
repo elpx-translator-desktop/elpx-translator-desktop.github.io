@@ -26,7 +26,7 @@ PERFORMANCE_MODE_OPTIONS = [
 ]
 PERFORMANCE_MODE_LABELS = dict(PERFORMANCE_MODE_OPTIONS)
 
-HTML_TRANSLATABLE_ATTRIBUTES = ['alt', 'title', 'placeholder', 'aria-label', 'label', 'value']
+HTML_TRANSLATABLE_ATTRIBUTES = ['alt', 'title', 'placeholder', 'aria-label', 'label']
 EXCLUDED_HTML_TAGS = {'code', 'pre', 'script', 'style', 'kbd', 'samp', 'math', 'svg'}
 JSON_SKIP_KEYS = {
     'id',
