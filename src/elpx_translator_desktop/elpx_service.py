@@ -258,6 +258,10 @@ class ElpxTranslationService:
             for node, text in translated:
                 self._replace_node_text(node, text)
 
+        project_language_nodes = self._get_property_value_nodes(document, 'odeProperty', {'pp_lang'})
+        for node, _ in project_language_nodes:
+            self._replace_node_text(node, options.target_language)
+
     def _translate_html_fragment(
         self,
         html: str,

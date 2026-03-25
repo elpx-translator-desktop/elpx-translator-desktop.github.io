@@ -52,6 +52,8 @@ if __package__ in {None, ''}:
         DEFAULT_TARGET_LANGUAGE,
         LANGUAGE_OPTIONS,
         SUPPORTED_LANGUAGE_CODES,
+        supported_source_languages,
+        supported_target_languages,
     )
     from elpx_translator_desktop.elpx_service import ElpxTranslationService, TranslationOptions  # type: ignore[no-redef]
     from elpx_translator_desktop.progress import ProgressEvent, TranslationCancelledError  # type: ignore[no-redef]
@@ -79,6 +81,8 @@ else:
         DEFAULT_TARGET_LANGUAGE,
         LANGUAGE_OPTIONS,
         SUPPORTED_LANGUAGE_CODES,
+        supported_source_languages,
+        supported_target_languages,
     )
     from .elpx_service import ElpxTranslationService, TranslationOptions
     from .progress import ProgressEvent, TranslationCancelledError
@@ -468,14 +472,11 @@ class MainWindow(QMainWindow):
 
         self.origin_combo = QComboBox()
         self.target_combo = QComboBox()
-        language_labels = {code: label for code, label in LANGUAGE_OPTIONS}
-        for code, label in LANGUAGE_OPTIONS:
-            text = f'{code} · {label}'
-            self.origin_combo.addItem(text, code)
-            self.target_combo.addItem(text, code)
-        self.origin_combo.setCurrentText(f'{DEFAULT_SOURCE_LANGUAGE} · {language_labels[DEFAULT_SOURCE_LANGUAGE]}')
-        self.target_combo.setCurrentText(f'{DEFAULT_TARGET_LANGUAGE} · {language_labels[DEFAULT_TARGET_LANGUAGE]}')
+        self.language_labels = {code: label for code, label in LANGUAGE_OPTIONS}
+        self._rebuild_language_combos(DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE)
+        self.origin_combo.currentIndexChanged.connect(self._sync_language_pairs)
         self.target_combo.currentIndexChanged.connect(self._sync_output_path_with_target_language)
+        self.target_combo.currentIndexChanged.connect(self._sync_language_pairs)
         controls_layout.addWidget(self.origin_combo, 5, 0)
         controls_layout.addWidget(self.target_combo, 5, 1)
 
@@ -903,9 +904,40 @@ class MainWindow(QMainWindow):
         if not detected_language or detected_language not in SUPPORTED_LANGUAGE_CODES:
             return
 
-        combo_index = self.origin_combo.findData(detected_language)
+        self._rebuild_language_combos(
+            detected_language,
+            self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE,
+        )
+
+    def _set_combo_languages(self, combo: QComboBox, language_codes: list[str], selected_code: str) -> None:
+        combo.blockSignals(True)
+        combo.clear()
+        for code in language_codes:
+            combo.addItem(f'{code} · {self.language_labels[code]}', code)
+
+        combo_index = combo.findData(selected_code)
+        if combo_index < 0 and combo.count():
+            combo_index = 0
         if combo_index >= 0:
-            self.origin_combo.setCurrentIndex(combo_index)
+            combo.setCurrentIndex(combo_index)
+        combo.blockSignals(False)
+
+    def _rebuild_language_combos(self, source_language: str, target_language: str) -> None:
+        source_options = supported_source_languages(target_language)
+        if source_language not in source_options:
+            source_language = source_options[0] if source_options else DEFAULT_SOURCE_LANGUAGE
+
+        target_options = supported_target_languages(source_language)
+        if target_language not in target_options:
+            target_language = target_options[0] if target_options else DEFAULT_TARGET_LANGUAGE
+
+        self._set_combo_languages(self.origin_combo, source_options, source_language)
+        self._set_combo_languages(self.target_combo, target_options, target_language)
+
+    def _sync_language_pairs(self) -> None:
+        source_language = self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE
+        target_language = self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE
+        self._rebuild_language_combos(source_language, target_language)
 
     def _build_output_path(self, input_path: Path) -> Path:
         target_language = self.target_combo.currentData() or 'xx'

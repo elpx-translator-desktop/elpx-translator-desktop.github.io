@@ -188,6 +188,21 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertEqual(len(engine.calls), 1)
         self.assertEqual(engine.calls[0], ['Portada', 'Texto uno', 'Texto dos', 'Texto tres', 'Texto cuatro'])
 
+    def test_updates_project_language_metadata_to_target_language(self) -> None:
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<root>'
+            '<odeProperty><key>pp_title</key><value>Guia</value></odeProperty>'
+            '<odeProperty><key>pp_lang</key><value>ca</value></odeProperty>'
+            '</root>'
+        )
+        options = TranslationOptions(source_language='ca', target_language='es', ui_language='es')
+
+        translated = self.service._translate_content_xml(xml, options, lambda event: None)
+
+        self.assertIn('<key>pp_lang</key><value>ca</value>', xml)
+        self.assertIn('<key>pp_lang</key><value>es</value>', translated)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,7 +9,7 @@ from huggingface_hub import snapshot_download
 from platformdirs import user_cache_dir
 from transformers import AutoTokenizer
 
-from .config import DEFAULT_PERFORMANCE_MODE, MODEL_CONFIG
+from .config import DEFAULT_PERFORMANCE_MODE, EUSKERA_MODEL_CONFIGS, MODEL_CONFIG, ModelConfig
 from .progress import ProgressEvent, TranslationCancelledError
 from .text_utils import split_long_text
 from .ui_i18n import tr
@@ -52,12 +52,25 @@ class TranslationEngine:
         self._tokenizer = None
         self._model_dir: Path | None = None
         self._runtime_profile: RuntimeProfile | None = None
+        self._model_key: str | None = None
+        self._model_config: ModelConfig | None = None
         self.performance_mode = performance_mode
         self.ui_language = ui_language
 
-    def ensure_model(self, progress_callback, should_cancel=None) -> None:
+    def ensure_model(self, source_language: str, target_language: str, progress_callback, should_cancel=None) -> None:
         self._raise_if_cancelled(should_cancel)
-        if self._translator is not None and self._tokenizer is not None:
+        model_config = self._resolve_model_config(source_language, target_language)
+        model_key = model_config.repo_id
+
+        runtime_profile = self._runtime_profile or self._build_runtime_profile(self.performance_mode)
+        self._runtime_profile = runtime_profile
+
+        if (
+            self._translator is not None
+            and self._tokenizer is not None
+            and self._model_key == model_key
+            and self._model_config == model_config
+        ):
             return
 
         cache_dir = Path(user_cache_dir('elpx-translator-desktop', 'Juanjo')) / 'models'
@@ -65,22 +78,21 @@ class TranslationEngine:
 
         progress_callback(
             ProgressEvent(
-                tr(self.ui_language, 'model_prepare', model_label=MODEL_CONFIG.label),
+                tr(self.ui_language, 'model_prepare', model_label=model_config.label),
                 transient=True,
             ),
         )
-        model_dir = Path(
+        snapshot_dir = Path(
             snapshot_download(
-                repo_id=MODEL_CONFIG.repo_id,
+                repo_id=model_config.repo_id,
                 cache_dir=str(cache_dir),
-                local_dir_use_symlinks=False,
+                etag_timeout=30,
+                max_workers=1,
             ),
         )
         self._raise_if_cancelled(should_cancel)
 
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_CONFIG.tokenizer_repo_id, cache_dir=str(cache_dir))
-        runtime_profile = self._build_runtime_profile(self.performance_mode)
-        self._runtime_profile = runtime_profile
+        tokenizer = AutoTokenizer.from_pretrained(model_config.tokenizer_repo_id, cache_dir=str(cache_dir))
 
         if runtime_profile.device == 'cpu':
             priority_message_key = 'priority_lowered' if self._lower_process_priority(runtime_profile.process_nice) else 'priority_normal'
@@ -103,6 +115,8 @@ class TranslationEngine:
                 transient=True,
             ),
         )
+
+        model_dir = snapshot_dir
         translator = ctranslate2.Translator(
             str(model_dir),
             device=runtime_profile.device,
@@ -114,6 +128,8 @@ class TranslationEngine:
         self._model_dir = model_dir
         self._translator = translator
         self._tokenizer = tokenizer
+        self._model_key = model_key
+        self._model_config = model_config
 
     def translate_texts(
         self,
@@ -133,14 +149,16 @@ class TranslationEngine:
         if source_language == target_language:
             return list(texts)
 
-        self.ensure_model(progress_callback, should_cancel)
+        self.ensure_model(source_language, target_language, progress_callback, should_cancel)
         assert self._translator is not None
         assert self._tokenizer is not None
         assert self._runtime_profile is not None
+        assert self._model_config is not None
 
         tokenizer = self._tokenizer
-        tokenizer.src_lang = source_language
         effective_batch_size = batch_size or self._runtime_profile.batch_size
+        if self._model_config.model_type == 'm2m100':
+            tokenizer.src_lang = source_language
 
         jobs: list[dict] = []
         for index, text in enumerate(texts):
@@ -157,7 +175,6 @@ class TranslationEngine:
                     },
                 )
 
-        target_prefix = [tokenizer.lang_code_to_token[target_language]]
         results: list[list[str]] = [[] for _ in texts]
         completed_units: set[int] = set()
 
@@ -178,12 +195,18 @@ class TranslationEngine:
                 tokenizer.convert_ids_to_tokens(tokenizer.encode(job['text'], add_special_tokens=True))
                 for job in batch
             ]
+            translate_kwargs = {
+                'beam_size': 4,
+                'max_batch_size': effective_batch_size,
+                'no_repeat_ngram_size': 3,
+            }
+            if self._model_config.model_type == 'm2m100':
+                target_prefix = [tokenizer.lang_code_to_token[target_language]]
+                translate_kwargs['target_prefix'] = [target_prefix] * len(batch)
+
             translated_batch = self._translator.translate_batch(
                 tokenized_batch,
-                target_prefix=[target_prefix] * len(batch),
-                beam_size=4,
-                max_batch_size=effective_batch_size,
-                no_repeat_ngram_size=3,
+                **translate_kwargs,
             )
 
             for batch_index, output in enumerate(translated_batch):
@@ -213,6 +236,10 @@ class TranslationEngine:
                     )
 
         return [' '.join(chunks).strip() or texts[index] for index, chunks in enumerate(results)]
+
+    @staticmethod
+    def _resolve_model_config(source_language: str, target_language: str) -> ModelConfig:
+        return EUSKERA_MODEL_CONFIGS.get((source_language, target_language), MODEL_CONFIG)
 
     def _build_batch_message(self, progress_label: str, batch: list[dict], progress_meta: dict | None) -> str:
         if len(batch) == 1:
