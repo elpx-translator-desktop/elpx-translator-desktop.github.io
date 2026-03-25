@@ -53,9 +53,10 @@ jobs:
                   ARCH="$(dpkg --print-architecture)"
                   PKG_ROOT="package-root"
                   APP_DIR="$PKG_ROOT/usr/lib/elpx-translator-desktop"
-                  mkdir -p "$APP_DIR" "$PKG_ROOT/usr/bin" "$PKG_ROOT/DEBIAN" "$PKG_ROOT/usr/share/applications" "$PKG_ROOT/usr/share/doc/elpx-translator-desktop"
+                  mkdir -p "$APP_DIR" "$PKG_ROOT/usr/bin" "$PKG_ROOT/DEBIAN" "$PKG_ROOT/usr/share/applications" "$PKG_ROOT/usr/share/doc/elpx-translator-desktop" "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps"
                   cp -a dist/ELPXTranslatorDesktop/. "$APP_DIR/"
                   cp packaging/linux/elpx-translator-desktop.desktop "$PKG_ROOT/usr/share/applications/"
+                  cp src/elpx_translator_desktop/assets/elpx-translator-desktop.svg "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/"
                   cp LICENSE "$PKG_ROOT/usr/share/doc/elpx-translator-desktop/LICENSE"
                   cat > "$PKG_ROOT/usr/bin/elpx-translator-desktop" <<'SH'
                   #!/bin/sh

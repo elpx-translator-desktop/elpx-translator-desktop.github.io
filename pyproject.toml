@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'elpx-translator-desktop'
-version = '0.1.5b1'
+version = '0.1.5b2'
 description = 'Aplicacion de escritorio para traducir archivos .elpx localmente'
 readme = 'README.md'
 requires-python = '>=3.11'
@@ -37,6 +37,9 @@ Releases = 'https://github.com/elpx-translator-desktop/elpx-translator-desktop.g
 
 [tool.setuptools]
 package-dir = {'' = 'src'}
+
+[tool.setuptools.package-data]
+elpx_translator_desktop = ['assets/*.svg']
 
 [tool.setuptools.packages.find]
 where = ['src']

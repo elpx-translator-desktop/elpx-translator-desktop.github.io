@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import html
+import importlib.resources as resources
 import sys
 import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, Signal, Slot
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -24,7 +25,9 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QStyle,
     QTextBrowser,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -145,6 +148,41 @@ class AboutDialog(QDialog):
             <p><a href="{PROJECT_ISSUES_URL}">{tr(ui_language, 'about_issues_link')}</a></p>
             <h3>{tr(ui_language, 'about_credits')}</h3>
             <p>{tr(ui_language, 'about_credits_body')}</p>
+            ''',
+        )
+        layout.addWidget(browser, 1)
+
+        close_button = QPushButton(tr(ui_language, 'close_button'))
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button, alignment=Qt.AlignRight)
+
+
+class HelpDialog(QDialog):
+    def __init__(self, ui_language: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(tr(ui_language, 'help_title'))
+        self.resize(680, 560)
+        self.setMinimumSize(620, 500)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setHtml(
+            f'''
+            <h2>{tr(ui_language, 'help_title')}</h2>
+            <p>{tr(ui_language, 'help_intro')}</p>
+            <h3>{tr(ui_language, 'help_how_title')}</h3>
+            <p>{tr(ui_language, 'help_how_body')}</p>
+            <h3>{tr(ui_language, 'help_ai_title')}</h3>
+            <p>{tr(ui_language, 'help_ai_body')}</p>
+            <h3>{tr(ui_language, 'help_privacy_title')}</h3>
+            <p>{tr(ui_language, 'help_privacy_body')}</p>
+            <h3>{tr(ui_language, 'help_support_title')}</h3>
+            <p>{tr(ui_language, 'help_support_body')}</p>
+            <p><a href="{PROJECT_ISSUES_URL}">{tr(ui_language, 'about_issues_link')}</a></p>
             ''',
         )
         layout.addWidget(browser, 1)
@@ -294,9 +332,17 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
 
-        self.settings_button = QPushButton('')
+        self.settings_button = QToolButton()
+        self.settings_button.setObjectName('headerIconButton')
+        self.settings_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
         self.settings_button.clicked.connect(self._open_settings)
         header_layout.addWidget(self.settings_button)
+
+        self.help_button = QToolButton()
+        self.help_button.setObjectName('headerIconButton')
+        self.help_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.help_button.clicked.connect(self._open_help_dialog)
+        header_layout.addWidget(self.help_button)
 
         self.about_button = QPushButton('')
         self.about_button.clicked.connect(self._open_about_dialog)
@@ -498,7 +544,18 @@ class MainWindow(QMainWindow):
                 padding: 10px 14px;
                 font-weight: 600;
             }
+            QToolButton#headerIconButton {
+                background: #ffffff;
+                border: 1px solid #ddd4c8;
+                border-radius: 10px;
+                padding: 8px;
+                min-width: 38px;
+                min-height: 38px;
+            }
             QPushButton:hover {
+                border: 1px solid #1f9d84;
+            }
+            QToolButton#headerIconButton:hover {
                 border: 1px solid #1f9d84;
             }
             QPushButton#primaryButton {
@@ -827,7 +884,10 @@ class MainWindow(QMainWindow):
     def _apply_ui_texts(self) -> None:
         self.setWindowTitle(tr(self.ui_language, 'app_title'))
         self.title_label.setText(tr(self.ui_language, 'app_title'))
-        self.settings_button.setText(tr(self.ui_language, 'settings'))
+        self.settings_button.setIcon(self._header_icon('preferences-system', QStyle.SP_FileDialogDetailedView))
+        self.settings_button.setToolTip(tr(self.ui_language, 'settings'))
+        self.help_button.setIcon(self._header_icon('help-browser', QStyle.SP_DialogHelpButton))
+        self.help_button.setToolTip(tr(self.ui_language, 'help_title'))
         self.about_button.setText(tr(self.ui_language, 'about'))
         self.file_label.setText(tr(self.ui_language, 'file_label'))
         self.file_edit.setPlaceholderText(tr(self.ui_language, 'file_placeholder'))
@@ -889,11 +949,21 @@ class MainWindow(QMainWindow):
         dialog = AboutDialog(self.ui_language, self)
         dialog.exec()
 
+    def _open_help_dialog(self) -> None:
+        dialog = HelpDialog(self.ui_language, self)
+        dialog.exec()
+
     def closeEvent(self, event) -> None:  # noqa: N802
         if self.update_thread is not None and self.update_thread.isRunning():
             self.update_thread.quit()
             self.update_thread.wait(2000)
         super().closeEvent(event)
+
+    def _header_icon(self, theme_name: str, fallback: QStyle.StandardPixmap) -> QIcon:
+        icon = QIcon.fromTheme(theme_name)
+        if icon.isNull():
+            icon = self.style().standardIcon(fallback)
+        return icon
 
     @staticmethod
     def format_clock(total_seconds: int) -> str:
@@ -920,7 +990,10 @@ class MainWindow(QMainWindow):
 
 def main() -> None:
     app = QApplication(sys.argv)
+    icon_path = resources.files('elpx_translator_desktop.assets').joinpath('elpx-translator-desktop.svg')
+    app.setWindowIcon(QIcon(str(icon_path)))
     window = MainWindow()
+    window.setWindowIcon(app.windowIcon())
     window.show()
     sys.exit(app.exec())
 
