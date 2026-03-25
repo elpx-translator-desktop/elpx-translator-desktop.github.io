@@ -87,6 +87,24 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertEqual(parsed['points'][0]['title'], '[[Editar]]')
         self.assertEqual(parsed['points'][0]['footer'], '[[Pie]]')
 
+    def test_translates_datagame_payloads_with_embedded_html_inside_json_strings(self) -> None:
+        html = (
+            '<div class="trivial-DataGame js-hidden">'
+            '{"instructionsExe":"<p>Texto inicial</p>","instructions":"Contesta la pregunta","items":[{"q":"Pregunta 1"}]}'
+            '</div>'
+        )
+
+        translated = self.service._translate_html_fragment(html, self.tracker, self.options, 'test')
+        payload = translated.split('>', 1)[1].rsplit('<', 1)[0]
+        parsed = json.loads(payload)
+
+        self.assertEqual(parsed['instructionsExe'], '<p>[[Texto inicial]]</p>')
+        self.assertEqual(parsed['instructions'], '[[Contesta la pregunta]]')
+        self.assertEqual(parsed['items'][0]['q'], '[[Pregunta 1]]')
+
+        extracted_texts = self.service._extract_html_texts(html)
+        self.assertEqual(extracted_texts, ['Texto inicial', 'Contesta la pregunta', 'Pregunta 1'])
+
     def test_translates_application_json_scripts_in_html(self) -> None:
         html = (
             '<script type="application/json">'

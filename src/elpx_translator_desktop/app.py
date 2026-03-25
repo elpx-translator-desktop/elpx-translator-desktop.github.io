@@ -6,8 +6,8 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, Signal, Slot
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, QUrl, Signal, Slot
+from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -32,7 +32,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import PROJECT_AUTHOR, PROJECT_ISSUES_URL, PROJECT_LICENSE_NAME, PROJECT_RELEASES_URL, PROJECT_REPOSITORY_URL, __version__
+from . import (
+    PROJECT_AUTHOR,
+    PROJECT_ISSUES_URL,
+    PROJECT_LICENSE_NAME,
+    PROJECT_RELEASES_URL,
+    PROJECT_REPOSITORY_URL,
+    PROJECT_WEBSITE_URL,
+    __version__,
+)
 from .config import (
     DEFAULT_PERFORMANCE_MODE,
     DEFAULT_SOURCE_LANGUAGE,
@@ -338,13 +346,13 @@ class MainWindow(QMainWindow):
         self.settings_button.clicked.connect(self._open_settings)
         header_layout.addWidget(self.settings_button)
 
-        self.help_button = QToolButton()
-        self.help_button.setObjectName('headerIconButton')
-        self.help_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        self.help_button.clicked.connect(self._open_help_dialog)
-        header_layout.addWidget(self.help_button)
+        self.website_button = QPushButton('')
+        self.website_button.setObjectName('headerActionButton')
+        self.website_button.clicked.connect(self._open_project_website)
+        header_layout.addWidget(self.website_button)
 
         self.about_button = QPushButton('')
+        self.about_button.setObjectName('headerActionButton')
         self.about_button.clicked.connect(self._open_about_dialog)
         header_layout.addWidget(self.about_button)
 
@@ -540,23 +548,38 @@ class MainWindow(QMainWindow):
             QPushButton {
                 background: #ffffff;
                 border: 1px solid #ddd4c8;
-                border-radius: 10px;
+                border-radius: 12px;
                 padding: 10px 14px;
                 font-weight: 600;
             }
             QToolButton#headerIconButton {
                 background: #ffffff;
-                border: 1px solid #ddd4c8;
-                border-radius: 10px;
+                border: 1px solid #d9d0c4;
+                border-radius: 14px;
                 padding: 8px;
-                min-width: 38px;
-                min-height: 38px;
+                min-width: 42px;
+                max-width: 42px;
+                min-height: 42px;
+                max-height: 42px;
+            }
+            QPushButton#headerActionButton {
+                background: #ffffff;
+                border: 1px solid #d9d0c4;
+                border-radius: 14px;
+                padding: 0 16px;
+                min-height: 42px;
+                color: #30404c;
+                font-weight: 600;
             }
             QPushButton:hover {
                 border: 1px solid #1f9d84;
             }
             QToolButton#headerIconButton:hover {
                 border: 1px solid #1f9d84;
+            }
+            QPushButton#headerActionButton:hover {
+                border: 1px solid #1f9d84;
+                color: #1d6c54;
             }
             QPushButton#primaryButton {
                 background: #1f9d84;
@@ -571,6 +594,16 @@ class MainWindow(QMainWindow):
                 background: #ebe6dd;
                 color: #887f73;
                 border: 1px solid #e0d8cd;
+            }
+            QLabel#statusChip {
+                background: #dff0e9;
+                color: #1d6c54;
+                border: 1px solid #c6e5d9;
+                border-radius: 14px;
+                padding: 0 18px;
+                min-height: 42px;
+                qproperty-alignment: AlignCenter;
+                font-weight: 700;
             }
             QProgressBar {
                 background: #ece5da;
@@ -782,15 +815,24 @@ class MainWindow(QMainWindow):
         elapsed = int(time.time() - self.start_time)
         self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value=self.format_clock(elapsed)))
 
-        if elapsed < 60 or self.completed_units < 24 or self.total_units <= 0:
+        if elapsed < 60 or self.progress_value < 3:
             self.eta_label.setText(tr(self.ui_language, 'eta', value=tr(self.ui_language, 'calculating')))
             return
 
         now = time.time()
         if self.last_eta_update == 0 or now - self.last_eta_update >= 10:
-            remaining_units = max(0, self.total_units - self.completed_units)
-            units_per_second = self.completed_units / elapsed if elapsed else 0
-            self.last_eta_seconds = int(remaining_units / units_per_second) if units_per_second > 0 else None
+            progress_fraction = self.progress_value / 100 if self.progress_value else 0
+            current_eta = (
+                int(elapsed * (1 - progress_fraction) / progress_fraction)
+                if progress_fraction > 0
+                else None
+            )
+            if current_eta is None:
+                self.last_eta_seconds = None
+            elif self.last_eta_seconds is None:
+                self.last_eta_seconds = current_eta
+            else:
+                self.last_eta_seconds = min(self.last_eta_seconds, current_eta)
             self.last_eta_update = now
 
         if self.last_eta_seconds is None:
@@ -886,8 +928,9 @@ class MainWindow(QMainWindow):
         self.title_label.setText(tr(self.ui_language, 'app_title'))
         self.settings_button.setIcon(self._header_icon('preferences-system', QStyle.SP_FileDialogDetailedView))
         self.settings_button.setToolTip(tr(self.ui_language, 'settings'))
-        self.help_button.setIcon(self._header_icon('help-browser', QStyle.SP_DialogHelpButton))
-        self.help_button.setToolTip(tr(self.ui_language, 'help_title'))
+        self.website_button.setIcon(self._header_icon('applications-internet', QStyle.SP_ArrowUp))
+        self.website_button.setText(tr(self.ui_language, 'website'))
+        self.website_button.setToolTip(tr(self.ui_language, 'website_tooltip'))
         self.about_button.setText(tr(self.ui_language, 'about'))
         self.file_label.setText(tr(self.ui_language, 'file_label'))
         self.file_edit.setPlaceholderText(tr(self.ui_language, 'file_placeholder'))
@@ -948,6 +991,9 @@ class MainWindow(QMainWindow):
     def _open_about_dialog(self) -> None:
         dialog = AboutDialog(self.ui_language, self)
         dialog.exec()
+
+    def _open_project_website(self) -> None:
+        QDesktopServices.openUrl(QUrl(PROJECT_WEBSITE_URL))
 
     def _open_help_dialog(self) -> None:
         dialog = HelpDialog(self.ui_language, self)

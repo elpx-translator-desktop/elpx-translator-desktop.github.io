@@ -82,10 +82,11 @@ class TranslationEngine:
         runtime_profile = self._build_runtime_profile(self.performance_mode)
         self._runtime_profile = runtime_profile
 
-        if runtime_profile.device == 'cpu' and self._lower_process_priority(runtime_profile.process_nice):
+        if runtime_profile.device == 'cpu':
+            priority_message_key = 'priority_lowered' if self._lower_process_priority(runtime_profile.process_nice) else 'priority_normal'
             progress_callback(
                 ProgressEvent(
-                    tr(self.ui_language, 'priority_lowered'),
+                    tr(self.ui_language, priority_message_key),
                 ),
             )
 
@@ -293,13 +294,13 @@ class TranslationEngine:
             worker_cap = 4
             thread_budget_ratio = 1.0
             batch_size_cap = 40
-            process_nice = 2
+            process_nice = 0
         elif performance_mode == 'rapido':
             reserved_cores = 1 if cpu_count > 2 else 0
             worker_cap = 3
             thread_budget_ratio = 0.8
             batch_size_cap = 32
-            process_nice = 4
+            process_nice = 0
         else:
             reserved_cores = 1 if cpu_count <= 4 else 2
             worker_cap = 2
@@ -327,6 +328,9 @@ class TranslationEngine:
     @staticmethod
     def _lower_process_priority(target_nice: int) -> bool:
         try:
+            if target_nice <= 0:
+                return False
+
             if os.name == 'nt':
                 import ctypes
 
@@ -341,8 +345,10 @@ class TranslationEngine:
                 return bool(ctypes.windll.kernel32.SetPriorityClass(process_handle, priority_class))
 
             current_nice = os.nice(0)
-            if current_nice < target_nice:
-                os.nice(target_nice - current_nice)
+            if current_nice >= target_nice:
+                return False
+
+            os.nice(target_nice - current_nice)
             return True
         except Exception:
             return False

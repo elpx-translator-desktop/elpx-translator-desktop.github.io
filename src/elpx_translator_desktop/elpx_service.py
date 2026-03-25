@@ -22,6 +22,11 @@ from .text_utils import (
 from .translator_engine import TranslationEngine
 from .ui_i18n import tr
 
+RAW_JSON_HTML_BLOCK_RE = re.compile(
+    r'(<(?P<tag>[a-zA-Z0-9]+)(?P<attrs>[^>]*\bclass\s*=\s*(?:"[^"]*DataGame[^"]*"|\'[^\']*DataGame[^\']*\')[^>]*)>)(?P<body>.*?)(</(?P=tag)>)',
+    re.IGNORECASE | re.DOTALL,
+)
+
 
 @dataclass
 class TranslationOptions:
@@ -263,7 +268,17 @@ class ElpxTranslationService:
         if not html.strip():
             return html
 
-        soup = BeautifulSoup(f'<div id="translation-root">{html}</div>', 'html.parser')
+        protected_html, raw_json_blocks = self._protect_raw_json_html_blocks(
+            html,
+            lambda payload: self._translate_serialized_json_payload(
+                payload,
+                tracker,
+                options,
+                progress_label,
+            ),
+        )
+
+        soup = BeautifulSoup(f'<div id="translation-root">{protected_html}</div>', 'html.parser')
         root = soup.find(id='translation-root')
         if root is None:
             return html
@@ -307,7 +322,8 @@ class ElpxTranslationService:
         for (element, attribute, _), (_, translated) in zip(attribute_targets, translated_attributes, strict=False):
             element[attribute] = translated
 
-        return ''.join(str(child) for child in root.contents)
+        translated_html = ''.join(str(child) for child in root.contents)
+        return self._restore_raw_json_html_blocks(translated_html, raw_json_blocks)
 
     def _translate_json_value(
         self,
@@ -424,12 +440,14 @@ class ElpxTranslationService:
         if not html.strip():
             return 0
 
-        soup = BeautifulSoup(f'<div id="translation-root">{html}</div>', 'html.parser')
+        protected_html, raw_json_blocks = self._protect_raw_json_html_blocks(html)
+        soup = BeautifulSoup(f'<div id="translation-root">{protected_html}</div>', 'html.parser')
         root = soup.find(id='translation-root')
         if root is None:
             return 0
 
         count = 0
+        count += sum(self._count_serialized_json_payload_units(payload) for _, payload, _ in raw_json_blocks)
         count += self._count_html_json_payload_units(root)
 
         for text_node in root.find_all(string=True):
@@ -451,12 +469,16 @@ class ElpxTranslationService:
         if not html.strip():
             return []
 
-        soup = BeautifulSoup(f'<div id="translation-root">{html}</div>', 'html.parser')
+        protected_html, raw_json_blocks = self._protect_raw_json_html_blocks(html)
+        soup = BeautifulSoup(f'<div id="translation-root">{protected_html}</div>', 'html.parser')
         root = soup.find(id='translation-root')
         if root is None:
             return []
 
         texts: list[str] = []
+        for _, payload, _ in raw_json_blocks:
+            texts.extend(self._extract_json_texts(json.loads(payload)))
+
         for text_node in root.find_all(string=True):
             parent = text_node.parent
             trimmed = str(text_node).strip()
@@ -663,6 +685,35 @@ class ElpxTranslationService:
     def _count_serialized_json_payload_units(self, value: str, html_reuse_map: dict[str, str] | None = None) -> int:
         parsed = json.loads(value)
         return self._count_json_units(parsed, html_reuse_map=html_reuse_map)
+
+    @staticmethod
+    def _protect_raw_json_html_blocks(html: str, transform=None) -> tuple[str, list[tuple[str, str, str]]]:
+        blocks: list[tuple[str, str, str]] = []
+        token_index = 0
+
+        def replace(match: re.Match) -> str:
+            nonlocal token_index
+
+            body = match.group('body')
+            leading_ws, payload, trailing_ws = split_surrounding_whitespace(body)
+            if not looks_like_json_payload(payload):
+                return match.group(0)
+
+            token = f'__ELPX_RAW_JSON_BLOCK_{token_index}__'
+            token_index += 1
+            replacement = transform(payload) if transform is not None else payload
+            blocks.append((token, payload, f'{leading_ws}{replacement}{trailing_ws}'))
+            return f"{match.group(1)}{leading_ws}{token}{trailing_ws}{match.group(5)}"
+
+        protected_html = RAW_JSON_HTML_BLOCK_RE.sub(replace, html)
+        return protected_html, blocks
+
+    @staticmethod
+    def _restore_raw_json_html_blocks(html: str, blocks: list[tuple[str, str, str]]) -> str:
+        restored_html = html
+        for token, _, replacement in blocks:
+            restored_html = restored_html.replace(token, replacement)
+        return restored_html
 
     @staticmethod
     def _replace_node_with_cdata(node, text: str) -> None:
