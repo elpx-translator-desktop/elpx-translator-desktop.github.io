@@ -18,11 +18,13 @@ function renderRelease(cardId, release, fallbackText) {
   const links = card.querySelector(".download-links");
 
   if (!release) {
+    card.classList.add("is-hidden");
     title.textContent = fallbackText;
-    links.innerHTML = `<p class="release-copy">No se ha podido cargar la información de descargas en este momento.</p>`;
+    links.innerHTML = "";
     return;
   }
 
+  card.classList.remove("is-hidden");
   title.textContent = `${release.name || release.tag_name}`;
   const downloads = pickDownloads(release.assets || []);
   links.innerHTML = downloads.length
@@ -43,7 +45,7 @@ async function loadReleases() {
     if (!response.ok) throw new Error("GitHub API error");
     const releases = await response.json();
 
-    const stable = releases.find((release) => !release.prerelease && !release.draft);
+    const stable = releases.find((release) => !release.prerelease && !release.draft && /^v?1\./i.test(release.tag_name || ""));
     const beta = releases.find((release) => release.prerelease && !release.draft);
 
     renderRelease("stable-release", stable, "Sin release estable");
