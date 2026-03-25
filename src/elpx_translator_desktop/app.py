@@ -32,27 +32,59 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import (
-    PROJECT_AUTHOR,
-    PROJECT_ISSUES_URL,
-    PROJECT_LICENSE_NAME,
-    PROJECT_RELEASES_URL,
-    PROJECT_REPOSITORY_URL,
-    PROJECT_WEBSITE_URL,
-    __version__,
-)
-from .config import (
-    DEFAULT_PERFORMANCE_MODE,
-    DEFAULT_SOURCE_LANGUAGE,
-    DEFAULT_TARGET_LANGUAGE,
-    LANGUAGE_OPTIONS,
-    SUPPORTED_LANGUAGE_CODES,
-)
-from .elpx_service import ElpxTranslationService, TranslationOptions
-from .progress import ProgressEvent, TranslationCancelledError
-from .translator_engine import TranslationEngine
-from .update_checker import UpdateCheckWorker
-from .ui_i18n import UI_LANGUAGE_OPTIONS, detect_ui_language, performance_label, tr
+if __package__ in {None, ''}:
+    package_root = Path(__file__).resolve().parent.parent
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+
+    from elpx_translator_desktop import (  # type: ignore[no-redef]
+        PROJECT_AUTHOR,
+        PROJECT_ISSUES_URL,
+        PROJECT_LICENSE_NAME,
+        PROJECT_RELEASES_URL,
+        PROJECT_REPOSITORY_URL,
+        PROJECT_WEBSITE_URL,
+        __version__,
+    )
+    from elpx_translator_desktop.config import (  # type: ignore[no-redef]
+        DEFAULT_PERFORMANCE_MODE,
+        DEFAULT_SOURCE_LANGUAGE,
+        DEFAULT_TARGET_LANGUAGE,
+        LANGUAGE_OPTIONS,
+        SUPPORTED_LANGUAGE_CODES,
+    )
+    from elpx_translator_desktop.elpx_service import ElpxTranslationService, TranslationOptions  # type: ignore[no-redef]
+    from elpx_translator_desktop.progress import ProgressEvent, TranslationCancelledError  # type: ignore[no-redef]
+    from elpx_translator_desktop.translator_engine import TranslationEngine  # type: ignore[no-redef]
+    from elpx_translator_desktop.update_checker import UpdateCheckWorker  # type: ignore[no-redef]
+    from elpx_translator_desktop.ui_i18n import (  # type: ignore[no-redef]
+        UI_LANGUAGE_OPTIONS,
+        detect_ui_language,
+        performance_label,
+        tr,
+    )
+else:
+    from . import (
+        PROJECT_AUTHOR,
+        PROJECT_ISSUES_URL,
+        PROJECT_LICENSE_NAME,
+        PROJECT_RELEASES_URL,
+        PROJECT_REPOSITORY_URL,
+        PROJECT_WEBSITE_URL,
+        __version__,
+    )
+    from .config import (
+        DEFAULT_PERFORMANCE_MODE,
+        DEFAULT_SOURCE_LANGUAGE,
+        DEFAULT_TARGET_LANGUAGE,
+        LANGUAGE_OPTIONS,
+        SUPPORTED_LANGUAGE_CODES,
+    )
+    from .elpx_service import ElpxTranslationService, TranslationOptions
+    from .progress import ProgressEvent, TranslationCancelledError
+    from .translator_engine import TranslationEngine
+    from .update_checker import UpdateCheckWorker
+    from .ui_i18n import UI_LANGUAGE_OPTIONS, detect_ui_language, performance_label, tr
 
 
 class SettingsDialog(QDialog):
