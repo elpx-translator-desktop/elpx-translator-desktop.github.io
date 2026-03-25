@@ -3,15 +3,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 LANGUAGE_OPTIONS = [
+    ('ar', 'العربية'),
+    ('bn', 'বাংলা'),
     ('es', 'Español'),
     ('en', 'English'),
     ('eu', 'Euskara'),
     ('fr', 'Français'),
     ('de', 'Deutsch'),
     ('it', 'Italiano'),
+    ('nl', 'Nederlands'),
+    ('pl', 'Polski'),
     ('pt', 'Português'),
     ('ca', 'Català'),
     ('gl', 'Galego'),
+    ('ro', 'Română'),
+    ('ru', 'Русский'),
+    ('tr', 'Türkçe'),
+    ('uk', 'Українська'),
+    ('ur', 'اردو'),
+    ('zh', '中文'),
 ]
 SUPPORTED_LANGUAGE_CODES = {code for code, _ in LANGUAGE_OPTIONS}
 
