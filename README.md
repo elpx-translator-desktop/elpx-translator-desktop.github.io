@@ -53,7 +53,8 @@ Notas:
 
 - La primera ejecucion descarga el modelo y el tokenizador en la cache local del usuario.
 - La traduccion se hace sobre `content.xml` y preserva la estructura del `.elpx`.
-- El repo usa por defecto el modelo `gn64/M2M100_418M_CTranslate2`.
+- El modelo general del repo es `gn64/M2M100_418M_CTranslate2`.
+- Para traducciones con euskera se usan modelos `OPUS-MT` específicos: `gaudi/opus-mt-es-eu-ctranslate2`, `gaudi/opus-mt-eu-es-ctranslate2`, `gaudi/opus-mt-en-eu-ctranslate2` y `gaudi/opus-mt-eu-en-ctranslate2`.
 - El motor elige automaticamente un perfil conservador segun la maquina:
   reserva nucleos para el sistema, limita los workers en CPU y baja la prioridad del proceso para evitar bloquear el equipo.
 - La app incluye un boton `Configuracion` con cuatro modos:
