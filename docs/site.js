@@ -29,7 +29,7 @@ function renderRelease(cardId, release, fallbackText) {
   const downloads = pickDownloads(release.assets || []);
   links.innerHTML = downloads.length
     ? downloads.map((item) => `
-        <a class="download-link" href="${item.asset.browser_download_url}">
+        <a class="download-link" href="${item.asset.browser_download_url}" target="_blank" rel="noopener noreferrer">
           <span>${item.label}</span>
           <span>Descargar ${item.hint}</span>
         </a>
