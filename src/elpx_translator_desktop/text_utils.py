@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 
 REFERENCE_RE = re.compile(r'^(asset://|https?://|mailto:|tel:|exe-node:|\{\{context_path\}\})', re.I)
@@ -108,3 +109,20 @@ def looks_like_encoded_payload(value: str) -> bool:
         return True
 
     return bool(BASE64ISH_RE.fullmatch(trimmed))
+
+
+def looks_like_json_payload(value: str) -> bool:
+    trimmed = value.strip()
+    if len(trimmed) < 2:
+        return False
+    if (not trimmed.startswith('{') or not trimmed.endswith('}')) and (
+        not trimmed.startswith('[') or not trimmed.endswith(']')
+    ):
+        return False
+
+    try:
+        parsed = json.loads(trimmed)
+    except json.JSONDecodeError:
+        return False
+
+    return isinstance(parsed, (dict, list))

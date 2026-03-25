@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import PROJECT_AUTHOR, PROJECT_LICENSE_NAME, PROJECT_RELEASES_URL, PROJECT_REPOSITORY_URL, __version__
+from . import PROJECT_AUTHOR, PROJECT_ISSUES_URL, PROJECT_LICENSE_NAME, PROJECT_RELEASES_URL, PROJECT_REPOSITORY_URL, __version__
 from .config import (
     DEFAULT_PERFORMANCE_MODE,
     DEFAULT_SOURCE_LANGUAGE,
@@ -131,6 +131,10 @@ class AboutDialog(QDialog):
         browser.setHtml(
             f'''
             <h2>{tr(ui_language, 'app_title')} {__version__}</h2>
+            <div style="margin: 10px 0 18px; padding: 12px 14px; border: 1px solid #cfd8dc; border-radius: 8px; background: #f6f8fa;">
+                <p><strong>{tr(ui_language, 'about_independence_title')}</strong></p>
+                <p>{tr(ui_language, 'about_independence_body')}</p>
+            </div>
             <p><strong>{tr(ui_language, 'about_author')}:</strong> {PROJECT_AUTHOR}</p>
             <p><strong>{tr(ui_language, 'about_license')}:</strong> {PROJECT_LICENSE_NAME}</p>
             <p>{tr(ui_language, 'about_license_body')}</p>
@@ -138,6 +142,7 @@ class AboutDialog(QDialog):
             <h3>{tr(ui_language, 'about_versions')}</h3>
             <p><a href="{PROJECT_REPOSITORY_URL}">{tr(ui_language, 'about_repo_link')}</a></p>
             <p><a href="{PROJECT_RELEASES_URL}">{tr(ui_language, 'about_releases_link')}</a></p>
+            <p><a href="{PROJECT_ISSUES_URL}">{tr(ui_language, 'about_issues_link')}</a></p>
             <h3>{tr(ui_language, 'about_credits')}</h3>
             <p>{tr(ui_language, 'about_credits_body')}</p>
             ''',
@@ -814,8 +819,9 @@ class MainWindow(QMainWindow):
 
         self.cancel_requested = True
         self.stop_button.setEnabled(False)
-        self.current_message_label.setText(tr(self.ui_language, 'canceling_translation'))
-        self._append_log(ProgressEvent(tr(self.ui_language, 'canceling_translation'), state='cancelled', transient=True))
+        cancelled_label = tr(self.ui_language, 'status_cancelled')
+        self.current_message_label.setText(cancelled_label)
+        self._append_log(ProgressEvent(cancelled_label, state='cancelled', transient=True))
         self.worker.request_cancel()
 
     def _apply_ui_texts(self) -> None:

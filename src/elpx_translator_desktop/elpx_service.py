@@ -15,6 +15,7 @@ from .text_utils import (
     is_translatable_text,
     looks_like_encoded_payload,
     looks_like_html,
+    looks_like_json_payload,
     looks_like_reference,
     split_surrounding_whitespace,
 )
@@ -128,6 +129,7 @@ class ElpxTranslationService:
                 component_count=len(components),
             ),
         )
+        self._prime_translation_memory(document, components, tracker, options)
         self._translate_structural_nodes(document, tracker, options)
 
         for index, component in enumerate(components, start=1):
@@ -137,27 +139,94 @@ class ElpxTranslationService:
 
         return self._serialize_document(document, xml_content)
 
+    def _prime_translation_memory(self, document, components, tracker: ProgressTracker, options: TranslationOptions) -> None:
+        texts = self._collect_document_texts(document, components)
+        pending_texts: list[str] = []
+        seen: set[str] = set()
+        for text in texts:
+            if text in tracker.translation_memory or text in seen:
+                continue
+            seen.add(text)
+            pending_texts.append(text)
+
+        if not pending_texts:
+            return
+
+        translated = self.engine.translate_texts(
+            pending_texts,
+            source_language=options.source_language,
+            target_language=options.target_language,
+            progress_callback=tracker.callback,
+            progress_label=tr(options.ui_language, 'preloading_translations'),
+            progress_meta={
+                'start_unit_index': 1,
+                'completed_units_before_batch': 0,
+                'total_units': len(pending_texts),
+            },
+            should_cancel=options.should_cancel,
+        )
+        for source_text, translated_text in zip(pending_texts, translated, strict=False):
+            tracker.translation_memory[source_text] = translated_text
+
     def _translate_component(self, component, tracker: ProgressTracker, options: TranslationOptions, index: int, total: int) -> None:
         progress_label = f'iDevice {index} de {total}'
+        html_reuse_map: dict[str, str] = {}
 
         html_nodes = component.getElementsByTagName('htmlView')
         if html_nodes and html_nodes[0].firstChild:
+            original_html = html_nodes[0].firstChild.nodeValue or ''
             translated_html = self._translate_html_fragment(
-                html_nodes[0].firstChild.nodeValue or '',
+                original_html,
                 tracker,
                 options,
                 progress_label,
             )
+            html_reuse_map[original_html] = translated_html
             self._replace_node_with_cdata(html_nodes[0], translated_html)
 
         json_nodes = component.getElementsByTagName('jsonProperties')
         if json_nodes and json_nodes[0].firstChild and json_nodes[0].firstChild.nodeValue.strip():
             try:
                 parsed = json.loads(json_nodes[0].firstChild.nodeValue)
-                translated = self._translate_json_value(parsed, tracker, options, progress_label)
+                translated = self._translate_json_value(parsed, tracker, options, progress_label, html_reuse_map=html_reuse_map)
                 self._replace_node_with_cdata(json_nodes[0], json.dumps(translated, ensure_ascii=False))
             except json.JSONDecodeError:
                 tracker.report(tr(options.ui_language, 'invalid_json_properties'))
+
+    def _collect_document_texts(self, document, components) -> list[str]:
+        texts: list[str] = []
+        texts.extend(text for _, text in self._get_text_nodes_by_tag(document, 'pageName'))
+        texts.extend(text for _, text in self._get_text_nodes_by_tag(document, 'blockName'))
+        texts.extend(
+            text
+            for _, text in self._get_property_value_nodes(document, 'odeNavStructureProperty', {'titlePage', 'titleNode'})
+        )
+        texts.extend(
+            text for _, text in self._get_property_value_nodes(document, 'odeProperty', {'pp_title', 'pp_description'})
+        )
+        for component in components:
+            texts.extend(self._collect_component_texts(component))
+        return texts
+
+    def _collect_component_texts(self, component) -> list[str]:
+        texts: list[str] = []
+        html_reuse_values: set[str] = set()
+
+        html_nodes = component.getElementsByTagName('htmlView')
+        if html_nodes and html_nodes[0].firstChild:
+            original_html = html_nodes[0].firstChild.nodeValue or ''
+            html_reuse_values.add(original_html)
+            texts.extend(self._extract_html_texts(original_html))
+
+        json_nodes = component.getElementsByTagName('jsonProperties')
+        if json_nodes and json_nodes[0].firstChild and json_nodes[0].firstChild.nodeValue.strip():
+            try:
+                parsed = json.loads(json_nodes[0].firstChild.nodeValue)
+            except json.JSONDecodeError:
+                return texts
+            texts.extend(self._extract_json_texts(parsed, html_reuse_values=html_reuse_values))
+
+        return texts
 
     def _translate_structural_nodes(self, document, tracker: ProgressTracker, options: TranslationOptions) -> None:
         page_name_nodes = self._get_text_nodes_by_tag(document, 'pageName')
@@ -172,7 +241,7 @@ class ElpxTranslationService:
             for node, text in translated:
                 self._replace_node_text(node, text)
 
-        nav_title_nodes = self._get_property_value_nodes(document, 'odeNavStructureProperty', {'titlePage'})
+        nav_title_nodes = self._get_property_value_nodes(document, 'odeNavStructureProperty', {'titlePage', 'titleNode'})
         if nav_title_nodes:
             translated = self._translate_plain_texts(nav_title_nodes, tracker, options, tr(options.ui_language, 'navigation_titles'))
             for node, text in translated:
@@ -198,6 +267,8 @@ class ElpxTranslationService:
         root = soup.find(id='translation-root')
         if root is None:
             return html
+
+        self._translate_html_json_payloads(root, tracker, options, progress_label)
 
         text_targets: list[tuple[NavigableString, str, str, str]] = []
         for text_node in root.find_all(string=True):
@@ -238,20 +309,42 @@ class ElpxTranslationService:
 
         return ''.join(str(child) for child in root.contents)
 
-    def _translate_json_value(self, value, tracker: ProgressTracker, options: TranslationOptions, progress_label: str, key: str = ''):
+    def _translate_json_value(
+        self,
+        value,
+        tracker: ProgressTracker,
+        options: TranslationOptions,
+        progress_label: str,
+        key: str = '',
+        html_reuse_map: dict[str, str] | None = None,
+    ):
         if isinstance(value, str):
             if self._should_skip_json_value(key, value):
                 return value
+            if html_reuse_map and value in html_reuse_map:
+                return html_reuse_map[value]
+            if looks_like_json_payload(value):
+                return self._translate_serialized_json_payload(value, tracker, options, progress_label, html_reuse_map)
             if looks_like_html(value):
                 return self._translate_html_fragment(value, tracker, options, progress_label)
             return self._translate_plain_texts([(None, value)], tracker, options, progress_label)[0][1]
 
         if isinstance(value, list):
-            return [self._translate_json_value(item, tracker, options, progress_label, key) for item in value]
+            return [
+                self._translate_json_value(item, tracker, options, progress_label, key, html_reuse_map)
+                for item in value
+            ]
 
         if isinstance(value, dict):
             return {
-                child_key: self._translate_json_value(child_value, tracker, options, progress_label, child_key)
+                child_key: self._translate_json_value(
+                    child_value,
+                    tracker,
+                    options,
+                    progress_label,
+                    child_key,
+                    html_reuse_map,
+                )
                 for child_key, child_value in value.items()
             }
 
@@ -310,7 +403,10 @@ class ElpxTranslationService:
         json_nodes = component.getElementsByTagName('jsonProperties')
         if json_nodes and json_nodes[0].firstChild:
             try:
-                total += self._count_json_units(json.loads(json_nodes[0].firstChild.nodeValue or ''))
+                html_reuse_map = {}
+                if html_nodes and html_nodes[0].firstChild:
+                    html_reuse_map[html_nodes[0].firstChild.nodeValue or ''] = ''
+                total += self._count_json_units(json.loads(json_nodes[0].firstChild.nodeValue or ''), html_reuse_map=html_reuse_map)
             except json.JSONDecodeError:
                 pass
 
@@ -320,7 +416,7 @@ class ElpxTranslationService:
         return (
             len(self._get_text_nodes_by_tag(document, 'pageName'))
             + len(self._get_text_nodes_by_tag(document, 'blockName'))
-            + len(self._get_property_value_nodes(document, 'odeNavStructureProperty', {'titlePage'}))
+            + len(self._get_property_value_nodes(document, 'odeNavStructureProperty', {'titlePage', 'titleNode'}))
             + len(self._get_property_value_nodes(document, 'odeProperty', {'pp_title', 'pp_description'}))
         )
 
@@ -334,6 +430,8 @@ class ElpxTranslationService:
             return 0
 
         count = 0
+        count += self._count_html_json_payload_units(root)
+
         for text_node in root.find_all(string=True):
             parent = text_node.parent
             if self._should_translate_html_text(parent, str(text_node)):
@@ -349,21 +447,90 @@ class ElpxTranslationService:
 
         return count
 
-    def _count_json_units(self, value, key: str = '') -> int:
+    def _extract_html_texts(self, html: str) -> list[str]:
+        if not html.strip():
+            return []
+
+        soup = BeautifulSoup(f'<div id="translation-root">{html}</div>', 'html.parser')
+        root = soup.find(id='translation-root')
+        if root is None:
+            return []
+
+        texts: list[str] = []
+        for text_node in root.find_all(string=True):
+            parent = text_node.parent
+            trimmed = str(text_node).strip()
+            if looks_like_json_payload(trimmed):
+                texts.extend(self._extract_json_texts(json.loads(trimmed)))
+                continue
+
+            _, core_text, _ = split_surrounding_whitespace(str(text_node))
+            if self._should_translate_html_text(parent, core_text):
+                texts.append(core_text)
+
+        for element in root.find_all(True):
+            if element.name in EXCLUDED_HTML_TAGS:
+                continue
+            for attribute in HTML_TRANSLATABLE_ATTRIBUTES:
+                value = element.get(attribute)
+                if isinstance(value, str) and is_translatable_text(value):
+                    texts.append(value)
+
+        return texts
+
+    def _count_json_units(self, value, key: str = '', html_reuse_map: dict[str, str] | None = None) -> int:
         if isinstance(value, str):
             if self._should_skip_json_value(key, value):
                 return 0
+            if html_reuse_map and value in html_reuse_map:
+                return 0
+            if looks_like_json_payload(value):
+                return self._count_serialized_json_payload_units(value, html_reuse_map)
             if looks_like_html(value):
                 return self._count_html_units(value)
             return 1
 
         if isinstance(value, list):
-            return sum(self._count_json_units(item, key) for item in value)
+            return sum(self._count_json_units(item, key, html_reuse_map) for item in value)
 
         if isinstance(value, dict):
-            return sum(self._count_json_units(child_value, child_key) for child_key, child_value in value.items())
+            return sum(
+                self._count_json_units(child_value, child_key, html_reuse_map)
+                for child_key, child_value in value.items()
+            )
 
         return 0
+
+    def _extract_json_texts(
+        self,
+        value,
+        key: str = '',
+        html_reuse_values: set[str] | None = None,
+    ) -> list[str]:
+        if isinstance(value, str):
+            if self._should_skip_json_value(key, value):
+                return []
+            if html_reuse_values and value in html_reuse_values:
+                return []
+            if looks_like_json_payload(value):
+                return self._extract_json_texts(json.loads(value), html_reuse_values=html_reuse_values)
+            if looks_like_html(value):
+                return self._extract_html_texts(value)
+            return [value]
+
+        if isinstance(value, list):
+            texts: list[str] = []
+            for item in value:
+                texts.extend(self._extract_json_texts(item, key, html_reuse_values))
+            return texts
+
+        if isinstance(value, dict):
+            texts: list[str] = []
+            for child_key, child_value in value.items():
+                texts.extend(self._extract_json_texts(child_value, child_key, html_reuse_values))
+            return texts
+
+        return []
 
     @staticmethod
     def _get_text_nodes_by_tag(document, tag_name: str) -> list[tuple[object, str]]:
@@ -438,8 +605,64 @@ class ElpxTranslationService:
         trimmed = text.strip()
         if looks_like_encoded_payload(trimmed):
             return False
+        if looks_like_json_payload(trimmed):
+            return False
 
         return is_translatable_text(trimmed)
+
+    def _translate_html_json_payloads(
+        self,
+        root: Tag,
+        tracker: ProgressTracker,
+        options: TranslationOptions,
+        progress_label: str,
+    ) -> None:
+        for text_node in list(root.find_all(string=True)):
+            parent = text_node.parent
+            if not isinstance(parent, Tag):
+                continue
+
+            trimmed = str(text_node).strip()
+            if not looks_like_json_payload(trimmed):
+                continue
+
+            translated = self._translate_serialized_json_payload(
+                trimmed,
+                tracker,
+                options,
+                progress_label,
+            )
+            text_node.replace_with(translated)
+
+    def _count_html_json_payload_units(self, root: Tag) -> int:
+        total = 0
+        for text_node in root.find_all(string=True):
+            trimmed = str(text_node).strip()
+            if looks_like_json_payload(trimmed):
+                total += self._count_serialized_json_payload_units(trimmed)
+        return total
+
+    def _translate_serialized_json_payload(
+        self,
+        value: str,
+        tracker: ProgressTracker,
+        options: TranslationOptions,
+        progress_label: str,
+        html_reuse_map: dict[str, str] | None = None,
+    ) -> str:
+        parsed = json.loads(value)
+        translated = self._translate_json_value(
+            parsed,
+            tracker,
+            options,
+            progress_label,
+            html_reuse_map=html_reuse_map,
+        )
+        return json.dumps(translated, ensure_ascii=False)
+
+    def _count_serialized_json_payload_units(self, value: str, html_reuse_map: dict[str, str] | None = None) -> int:
+        parsed = json.loads(value)
+        return self._count_json_units(parsed, html_reuse_map=html_reuse_map)
 
     @staticmethod
     def _replace_node_with_cdata(node, text: str) -> None:
