@@ -13,6 +13,7 @@ from elpx_translator_desktop.update_checker import (
 class UpdateCheckerTests(unittest.TestCase):
     def test_prerelease_detection(self) -> None:
         self.assertTrue(is_prerelease_version('0.1.5b5'))
+        self.assertTrue(is_prerelease_version('0.1.7~beta1'))
         self.assertTrue(is_prerelease_version('v0.1.5rc1'))
         self.assertFalse(is_prerelease_version('0.1.5'))
 
@@ -24,6 +25,7 @@ class UpdateCheckerTests(unittest.TestCase):
     def test_is_newer_version_handles_beta_numbers(self) -> None:
         self.assertTrue(is_newer_version('0.1.5b6', '0.1.5b5'))
         self.assertFalse(is_newer_version('0.1.5b4', '0.1.5b5'))
+        self.assertTrue(is_newer_version('0.1.7', '0.1.7~beta1'))
 
     def test_stable_install_ignores_prereleases(self) -> None:
         releases = [
@@ -35,6 +37,17 @@ class UpdateCheckerTests(unittest.TestCase):
 
         self.assertIsNotNone(selected)
         self.assertEqual(selected['version'], 'v0.1.5')
+
+    def test_stable_install_can_opt_in_to_prereleases(self) -> None:
+        releases = [
+            {'tag_name': 'v0.1.7~beta1', 'html_url': 'https://example.test/beta71', 'prerelease': True, 'draft': False},
+            {'tag_name': 'v0.1.6', 'html_url': 'https://example.test/stable', 'prerelease': False, 'draft': False},
+        ]
+
+        selected = select_update_release(releases, '0.1.6', allow_prereleases=True)
+
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected['version'], 'v0.1.7~beta1')
 
     def test_beta_install_can_see_newer_prereleases(self) -> None:
         releases = [

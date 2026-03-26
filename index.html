@@ -16,33 +16,43 @@
         <span>ELPX Translator Desktop</span>
       </div>
       <div class="top-links">
-        <a href="#descargas">Descargas</a>
-        <a href="#capturas">Capturas</a>
-        <a href="#privacidad">Privacidad</a>
-        <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer">Sugerencias y errores</a>
+        <a href="#descargas" data-i18n="nav_downloads">Descargas</a>
+        <a href="#capturas" data-i18n="nav_screenshots">Capturas</a>
+        <a href="#privacidad" data-i18n="nav_privacy">Privacidad</a>
+        <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="nav_issues">Sugerencias y errores</a>
       </div>
+      <label class="language-picker" for="language-picker">
+        <span data-i18n="language_label">Idioma</span>
+        <select id="language-picker" aria-label="Idioma del sitio">
+          <option value="es">Español</option>
+          <option value="en">English</option>
+          <option value="ca">Català</option>
+          <option value="eu">Euskara</option>
+          <option value="gl">Galego</option>
+        </select>
+      </label>
     </nav>
 
     <section class="hero-body">
       <div class="hero-copy">
-        <p class="eyebrow">Para profesorado y personas no técnicas</p>
+        <p class="eyebrow" data-i18n="hero_eyebrow">Para profesorado y personas no técnicas</p>
         <h1>ELPX Translator Desktop</h1>
-        <p class="lead">
+        <p class="lead" data-i18n="hero_lead">
           ELPX Translator Desktop sirve para traducir proyectos de eXeLearning sin depender de servicios externos.
           Está pensado para ahorrar tiempo al adaptar materiales ya creados a otro idioma.
         </p>
         <div class="hero-actions">
-          <a class="button button-primary" href="#descargas">Ver descargas</a>
-          <a class="button button-secondary" href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer">Informar de una sugerencia o problema</a>
+          <a class="button button-primary" href="#descargas" data-i18n="hero_cta_downloads">Ver descargas</a>
+          <a class="button button-secondary" href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="hero_cta_issues">Informar de una sugerencia o problema</a>
         </div>
         <ul class="hero-points">
-          <li>Funciona en Linux, Windows y macOS.</li>
-          <li>Procesa el contenido del archivo en tu equipo.</li>
-          <li>Interfaz sencilla, pensada para profesorado y personas no técnicas.</li>
+          <li data-i18n="hero_point_1">Funciona en Linux, Windows y macOS.</li>
+          <li data-i18n="hero_point_2">Procesa el contenido del archivo en tu equipo.</li>
+          <li data-i18n="hero_point_3">Interfaz sencilla, pensada para profesorado y personas no técnicas.</li>
         </ul>
       </div>
       <div class="hero-shot">
-        <img src="docs/assets/screenshots/main-window.png" alt="Ventana principal de ELPX Translator Desktop">
+        <img src="docs/assets/screenshots/main-window.png" alt="Ventana principal de ELPX Translator Desktop" data-i18n-attr="alt:hero_image_alt">
       </div>
     </section>
   </header>
@@ -50,48 +60,48 @@
   <main>
     <section class="section">
       <div class="section-header">
-        <p class="eyebrow">Qué es</p>
-        <h2>Una herramienta para traducir materiales de eXeLearning con menos trabajo manual</h2>
+        <p class="eyebrow" data-i18n="what_eyebrow">Qué es</p>
+        <h2 data-i18n="what_title">Una herramienta para traducir materiales de eXeLearning con menos trabajo manual</h2>
       </div>
       <div class="grid three">
         <article class="card">
-          <h3>Qué hace</h3>
-          <p>Abre un archivo <code>.elpx</code>, detecta el texto traducible y genera una copia en el idioma que elijas.</p>
+          <h3 data-i18n="what_card_1_title">Qué hace</h3>
+          <p data-i18n="what_card_1_body" data-i18n-mode="html">Abre un archivo <code>.elpx</code>, detecta el texto traducible y genera una copia en el idioma que elijas.</p>
         </article>
         <article class="card">
-          <h3>Para quién está pensada</h3>
-          <p>Sobre todo para docentes que ya tienen materiales creados y quieren reutilizarlos sin volver a traducir todo a mano.</p>
+          <h3 data-i18n="what_card_2_title">Para quién está pensada</h3>
+          <p data-i18n="what_card_2_body">Sobre todo para docentes que ya tienen materiales creados y quieren reutilizarlos sin volver a traducir todo a mano.</p>
         </article>
         <article class="card">
-          <h3>Qué no necesitas</h3>
-          <p>No hace falta saber programar, usar terminal ni entender detalles técnicos sobre modelos de IA.</p>
+          <h3 data-i18n="what_card_3_title">Qué no necesitas</h3>
+          <p data-i18n="what_card_3_body">No hace falta saber programar, usar terminal ni entender detalles técnicos sobre modelos de IA.</p>
         </article>
       </div>
     </section>
 
     <section id="descargas" class="section section-alt">
       <div class="section-header">
-        <p class="eyebrow">Descargas</p>
-        <h2>Versiones disponibles</h2>
-        <p>La página consulta GitHub Releases y muestra la última beta publicada. En Linux verás tanto el paquete <code>.deb</code> como la <code>AppImage</code>. Cuando haya una versión estable realmente lista, también aparecerá aquí.</p>
+        <p class="eyebrow" data-i18n="downloads_eyebrow">Descargas</p>
+        <h2 data-i18n="downloads_title">Versiones disponibles</h2>
+        <p data-i18n="downloads_body" data-i18n-mode="html">La página consulta GitHub Releases y muestra la última beta publicada. En Linux verás tanto el paquete <code>.deb</code> como la <code>AppImage</code>. Cuando haya una versión estable realmente lista, también aparecerá aquí.</p>
       </div>
 
       <div class="release-grid">
         <article class="release-card is-hidden" id="stable-release">
           <div class="release-card-header">
-            <p class="release-label">Versión estable</p>
-            <h3>Cargando...</h3>
+            <p class="release-label" data-release-label="stable" data-i18n="release_stable_label">Versión estable</p>
+            <h3 data-release-title="stable"></h3>
           </div>
-          <p class="release-copy">La opción recomendada para la mayoría de personas.</p>
+          <p class="release-copy" data-release-copy="stable" data-i18n="release_stable_copy">La opción recomendada para la mayoría de personas.</p>
           <div class="download-links"></div>
         </article>
 
         <article class="release-card release-card-beta" id="beta-release">
           <div class="release-card-header">
-            <p class="release-label">Última beta</p>
-            <h3>Cargando...</h3>
+            <p class="release-label" data-release-label="beta" data-i18n="release_beta_label">Última beta</p>
+            <h3 data-release-title="beta"></h3>
           </div>
-          <p class="release-copy">Si quieres probar antes los cambios más recientes y ayudarnos a detectar fallos.</p>
+          <p class="release-copy" data-release-copy="beta" data-i18n="release_beta_copy">Si quieres probar antes los cambios más recientes y ayudarnos a detectar fallos.</p>
           <div class="download-links"></div>
         </article>
       </div>
@@ -99,178 +109,178 @@
 
     <section class="section">
       <div class="section-header">
-        <p class="eyebrow">Cómo se usa</p>
-        <h2>Tres pasos</h2>
+        <p class="eyebrow" data-i18n="steps_eyebrow">Cómo se usa</p>
+        <h2 data-i18n="steps_title">Tres pasos</h2>
       </div>
       <div class="steps">
         <article class="step">
           <span class="step-number">1</span>
-          <h3>Abre tu archivo</h3>
-          <p>Selecciona el proyecto <code>.elpx</code> que quieres traducir.</p>
+          <h3 data-i18n="step_1_title">Abre tu archivo</h3>
+          <p data-i18n="step_1_body" data-i18n-mode="html">Selecciona el proyecto <code>.elpx</code> que quieres traducir.</p>
         </article>
         <article class="step">
           <span class="step-number">2</span>
-          <h3>Elige idiomas</h3>
-          <p>Marca el idioma de origen y el idioma de destino.</p>
+          <h3 data-i18n="step_2_title">Elige idiomas</h3>
+          <p data-i18n="step_2_body">Marca el idioma de origen y el idioma de destino.</p>
         </article>
         <article class="step">
           <span class="step-number">3</span>
-          <h3>Genera la copia traducida</h3>
-          <p>La aplicación crea un nuevo archivo para que puedas revisarlo y seguir trabajándolo en eXeLearning.</p>
+          <h3 data-i18n="step_3_title">Genera la copia traducida</h3>
+          <p data-i18n="step_3_body">La aplicación crea un nuevo archivo para que puedas revisarlo y seguir trabajándolo en eXeLearning.</p>
         </article>
       </div>
     </section>
 
     <section class="section">
       <div class="section-header">
-        <p class="eyebrow">Rendimiento</p>
-        <h2>Qué significa cada modo</h2>
-        <p>La aplicación incluye cuatro modos para adaptarse mejor a tu equipo. No hace falta entender detalles técnicos: basta con elegir el que mejor encaje con tu forma de trabajar.</p>
+        <p class="eyebrow" data-i18n="performance_eyebrow">Rendimiento</p>
+        <h2 data-i18n="performance_title">Qué significa cada modo</h2>
+        <p data-i18n="performance_body">La aplicación incluye cuatro modos para adaptarse mejor a tu equipo. No hace falta entender detalles técnicos: basta con elegir el que mejor encaje con tu forma de trabajar.</p>
       </div>
       <div class="grid two">
         <article class="card">
-          <h3>Suave</h3>
-          <p>Prioriza que el ordenador siga respondiendo con comodidad mientras haces otras cosas. Puede tardar más, pero molesta menos al resto del sistema.</p>
+          <h3 data-i18n="perf_card_1_title">Suave</h3>
+          <p data-i18n="perf_card_1_body">Prioriza que el ordenador siga respondiendo con comodidad mientras haces otras cosas. Puede tardar más, pero molesta menos al resto del sistema.</p>
         </article>
         <article class="card">
-          <h3>Equilibrado</h3>
-          <p>Es la opción recomendada para la mayoría de personas. Busca un punto razonable entre velocidad y comodidad de uso.</p>
+          <h3 data-i18n="perf_card_2_title">Equilibrado</h3>
+          <p data-i18n="perf_card_2_body">Es la opción recomendada para la mayoría de personas. Busca un punto razonable entre velocidad y comodidad de uso.</p>
         </article>
         <article class="card">
-          <h3>Rápido</h3>
-          <p>Usa más recursos para intentar terminar antes. Puede ser útil si quieres reducir tiempos y no necesitas usar mucho el equipo al mismo tiempo.</p>
+          <h3 data-i18n="perf_card_3_title">Rápido</h3>
+          <p data-i18n="perf_card_3_body">Usa más recursos para intentar terminar antes. Puede ser útil si quieres reducir tiempos y no necesitas usar mucho el equipo al mismo tiempo.</p>
         </article>
         <article class="card">
-          <h3>Máximo</h3>
-          <p>Exprime más el ordenador para ir lo más rápido posible. Conviene usarlo cuando el equipo es potente y no vas a hacer otras tareas importantes a la vez.</p>
+          <h3 data-i18n="perf_card_4_title">Máximo</h3>
+          <p data-i18n="perf_card_4_body">Exprime más el ordenador para ir lo más rápido posible. Conviene usarlo cuando el equipo es potente y no vas a hacer otras tareas importantes a la vez.</p>
         </article>
       </div>
     </section>
 
     <section class="section section-alt">
       <div class="section-header">
-        <p class="eyebrow">Equipo recomendado</p>
-        <h2>Requisitos orientativos</h2>
-        <p>No hay una lista cerrada de requisitos mínimos exactos, pero estas referencias ayudan a saber qué esperar antes de instalarla.</p>
+        <p class="eyebrow" data-i18n="requirements_eyebrow">Equipo recomendado</p>
+        <h2 data-i18n="requirements_title">Requisitos orientativos</h2>
+        <p data-i18n="requirements_body">No hay una lista cerrada de requisitos mínimos exactos, pero estas referencias ayudan a saber qué esperar antes de instalarla.</p>
       </div>
       <div class="grid two">
         <article class="card">
-          <h3>Para un uso cómodo</h3>
-          <p>Un equipo de 64 bits con al menos <strong>8 GB de RAM</strong> suele ser una base razonable para trabajar con más tranquilidad.</p>
-          <p>Si el ordenador tiene más memoria y varios núcleos de CPU, la traducción suele ir mejor, sobre todo con archivos grandes.</p>
+          <h3 data-i18n="requirements_card_1_title">Para un uso cómodo</h3>
+          <p data-i18n="requirements_card_1_body_1" data-i18n-mode="html">Un equipo de 64 bits con al menos <strong>8 GB de RAM</strong> suele ser una base razonable para trabajar con más tranquilidad.</p>
+          <p data-i18n="requirements_card_1_body_2">Si el ordenador tiene más memoria y varios núcleos de CPU, la traducción suele ir mejor, sobre todo con archivos grandes.</p>
         </article>
         <article class="card">
-          <h3>Qué puede pasar en equipos modestos</h3>
-          <p>La aplicación puede funcionar en equipos más justos, pero es normal que tarde más y que convenga usar modos como <strong>Suave</strong> o <strong>Equilibrado</strong>.</p>
-          <p>La primera ejecución también necesita espacio libre para descargar el modelo y dejarlo guardado en la caché local.</p>
+          <h3 data-i18n="requirements_card_2_title">Qué puede pasar en equipos modestos</h3>
+          <p data-i18n="requirements_card_2_body_1" data-i18n-mode="html">La aplicación puede funcionar en equipos más justos, pero es normal que tarde más y que convenga usar modos como <strong>Suave</strong> o <strong>Equilibrado</strong>.</p>
+          <p data-i18n="requirements_card_2_body_2">La primera ejecución también necesita espacio libre para descargar el modelo y dejarlo guardado en la caché local.</p>
         </article>
       </div>
     </section>
 
     <section id="capturas" class="section">
       <div class="section-header">
-        <p class="eyebrow">Capturas</p>
-        <h2>La aplicación por dentro</h2>
+        <p class="eyebrow" data-i18n="screenshots_eyebrow">Capturas</p>
+        <h2 data-i18n="screenshots_title">La aplicación por dentro</h2>
       </div>
       <div class="gallery">
         <figure class="shot-card">
-          <img src="docs/assets/screenshots/main-window.png" alt="Pantalla principal de la aplicación">
-          <figcaption>Pantalla principal: archivo de entrada, idioma de origen, idioma de destino y progreso.</figcaption>
+          <img src="docs/assets/screenshots/main-window.png" alt="Pantalla principal de la aplicación" data-i18n-attr="alt:screenshot_1_alt">
+          <figcaption data-i18n="screenshot_1_caption">Pantalla principal: archivo de entrada, idioma de origen, idioma de destino y progreso.</figcaption>
         </figure>
         <figure class="shot-card">
-          <img src="docs/assets/screenshots/about-window.png" alt="Ventana con información de la aplicación">
-          <figcaption>La propia aplicación incluye información sobre el proyecto y acceso a soporte.</figcaption>
+          <img src="docs/assets/screenshots/about-window.png" alt="Ventana con información de la aplicación" data-i18n-attr="alt:screenshot_2_alt">
+          <figcaption data-i18n="screenshot_2_caption">La propia aplicación incluye información sobre el proyecto y acceso a soporte.</figcaption>
         </figure>
       </div>
     </section>
 
     <section id="privacidad" class="section section-alt">
       <div class="section-header">
-        <p class="eyebrow">Privacidad e IA</p>
-        <h2>Explicado de forma simple</h2>
+        <p class="eyebrow" data-i18n="privacy_eyebrow">Privacidad e IA</p>
+        <h2 data-i18n="privacy_title">Explicado de forma simple</h2>
       </div>
       <div class="grid two">
         <article class="card">
-          <h3>Cómo usa la IA</h3>
-          <p>La aplicación usa un modelo abierto de traducción para proponer el texto en otro idioma. Su trabajo es ayudarte con la traducción automática del contenido del proyecto.</p>
-          <p>Para la mayoría de idiomas, la aplicación usa <strong>M2M100 418M</strong>, un modelo abierto publicado por <strong>Facebook AI</strong>. Está preparado para poder ejecutarse en un ordenador corriente sin depender de un servicio externo.</p>
-          <p>Cuando la traducción incluye <strong>euskera</strong>, la aplicación usa modelos abiertos de la familia <strong>OPUS-MT</strong>, desarrollados en el entorno académico de <strong>Helsinki-NLP</strong> y la <strong>Universidad de Helsinki</strong>.</p>
-          <p>En ambos casos se trata de modelos <strong>abiertos</strong>, pensados para poder descargarse y ejecutarse localmente. Por eso la traducción se hace en tu equipo y no depende de una plataforma comercial externa.</p>
+          <h3 data-i18n="privacy_card_1_title">Cómo usa la IA</h3>
+          <p data-i18n="privacy_card_1_body_1">La aplicación usa un modelo abierto de traducción para proponer el texto en otro idioma. Su trabajo es ayudarte con la traducción automática del contenido del proyecto.</p>
+          <p data-i18n="privacy_card_1_body_2" data-i18n-mode="html">Para la mayoría de idiomas, la aplicación usa <strong>M2M100 418M</strong>, un modelo abierto publicado por <strong>Facebook AI</strong>. Está preparado para poder ejecutarse en un ordenador corriente sin depender de un servicio externo.</p>
+          <p data-i18n="privacy_card_1_body_3" data-i18n-mode="html">Cuando la traducción incluye <strong>euskera</strong>, la aplicación usa modelos abiertos de la familia <strong>OPUS-MT</strong>, desarrollados en el entorno académico de <strong>Helsinki-NLP</strong> y la <strong>Universidad de Helsinki</strong>.</p>
+          <p data-i18n="privacy_card_1_body_4" data-i18n-mode="html">En ambos casos se trata de modelos <strong>abiertos</strong>, pensados para poder descargarse y ejecutarse localmente. Por eso la traducción se hace en tu equipo y no depende de una plataforma comercial externa.</p>
         </article>
         <article class="card">
-          <h3>Qué pasa con tus datos</h3>
-          <p>El contenido del archivo se procesa en tu ordenador durante la traducción.</p>
-          <p>No envía tu proyecto a un servicio externo para traducirlo. Solo puede conectarse a internet para descargar el modelo la primera vez y para comprobar si hay nuevas versiones.</p>
+          <h3 data-i18n="privacy_card_2_title">Qué pasa con tus datos</h3>
+          <p data-i18n="privacy_card_2_body_1">El contenido del archivo se procesa en tu ordenador durante la traducción.</p>
+          <p data-i18n="privacy_card_2_body_2">No envía tu proyecto a un servicio externo para traducirlo. Solo puede conectarse a internet para descargar el modelo la primera vez y para comprobar si hay nuevas versiones.</p>
         </article>
       </div>
     </section>
 
     <section class="section">
       <div class="section-header">
-        <p class="eyebrow">Problemas conocidos</p>
-        <h2>Limitaciones que conviene tener en cuenta</h2>
-        <p>La aplicación puede ahorrar mucho trabajo, pero todavía hay casos en los que la revisión manual sigue siendo importante.</p>
+        <p class="eyebrow" data-i18n="known_eyebrow">Problemas conocidos</p>
+        <h2 data-i18n="known_title">Limitaciones que conviene tener en cuenta</h2>
+        <p data-i18n="known_body">La aplicación puede ahorrar mucho trabajo, pero todavía hay casos en los que la revisión manual sigue siendo importante.</p>
       </div>
       <div class="grid two">
         <article class="card">
-          <h3>Títulos muy cortos o con poco contexto</h3>
-          <p>Algunos títulos de navegación, nombres breves de actividades o etiquetas muy cortas pueden traducirse de forma poco natural o directamente incorrecta.</p>
-          <p>Esto ocurre porque, cuando el texto es muy breve y no aporta contexto suficiente, el modelo puede interpretarlo como si fuera un nombre propio, una categoría o una etiqueta técnica distinta de lo que realmente es.</p>
+          <h3 data-i18n="known_card_1_title">Títulos muy cortos o con poco contexto</h3>
+          <p data-i18n="known_card_1_body_1">Algunos títulos de navegación, nombres breves de actividades o etiquetas muy cortas pueden traducirse de forma poco natural o directamente incorrecta.</p>
+          <p data-i18n="known_card_1_body_2">Esto ocurre porque, cuando el texto es muy breve y no aporta contexto suficiente, el modelo puede interpretarlo como si fuera un nombre propio, una categoría o una etiqueta técnica distinta de lo que realmente es.</p>
         </article>
         <article class="card">
-          <h3>iDevices interactivos complejos</h3>
-          <p>Determinados iDevices con lógica propia, mensajes internos o formatos especiales no siempre se traducen completamente.</p>
-          <p>En estos casos, puede ocurrir que parte del contenido quede en el idioma original, que algunos textos automáticos no cambien o que ciertos elementos necesiten retoque manual dentro de eXeLearning.</p>
+          <h3 data-i18n="known_card_2_title">iDevices interactivos complejos</h3>
+          <p data-i18n="known_card_2_body_1">Determinados iDevices con lógica propia, mensajes internos o formatos especiales no siempre se traducen completamente.</p>
+          <p data-i18n="known_card_2_body_2">En estos casos, puede ocurrir que parte del contenido quede en el idioma original, que algunos textos automáticos no cambien o que ciertos elementos necesiten retoque manual dentro de eXeLearning.</p>
         </article>
         <article class="card">
-          <h3>Revisión final necesaria</h3>
-          <p>La herramienta está pensada para acelerar el trabajo, no para sustituir una revisión final del material.</p>
-          <p>Conviene comprobar especialmente los títulos, instrucciones, actividades interactivas, textos incrustados en imágenes o tablas y cualquier contenido que tenga valor didáctico sensible.</p>
+          <h3 data-i18n="known_card_3_title">Revisión final necesaria</h3>
+          <p data-i18n="known_card_3_body_1">La herramienta está pensada para acelerar el trabajo, no para sustituir una revisión final del material.</p>
+          <p data-i18n="known_card_3_body_2">Conviene comprobar especialmente los títulos, instrucciones, actividades interactivas, textos incrustados en imágenes o tablas y cualquier contenido que tenga valor didáctico sensible.</p>
         </article>
         <article class="card">
-          <h3>Calidad desigual según idioma y contenido</h3>
-          <p>La calidad de la traducción puede variar según el par de idiomas, el tipo de texto y la estructura del proyecto.</p>
-          <p>Los textos largos y con contexto suelen salir mejor que las etiquetas sueltas, los menús, los nombres de actividades o los fragmentos muy técnicos.</p>
+          <h3 data-i18n="known_card_4_title">Calidad desigual según idioma y contenido</h3>
+          <p data-i18n="known_card_4_body_1">La calidad de la traducción puede variar según el par de idiomas, el tipo de texto y la estructura del proyecto.</p>
+          <p data-i18n="known_card_4_body_2">Los textos largos y con contexto suelen salir mejor que las etiquetas sueltas, los menús, los nombres de actividades o los fragmentos muy técnicos.</p>
         </article>
       </div>
     </section>
 
     <section class="section">
       <div class="section-header">
-        <p class="eyebrow">Preguntas habituales</p>
-        <h2>Lo importante antes de empezar</h2>
+        <p class="eyebrow" data-i18n="faq_eyebrow">Preguntas habituales</p>
+        <h2 data-i18n="faq_title">Lo importante antes de empezar</h2>
       </div>
       <div class="faq">
         <article class="faq-item">
-          <h3>¿Es un proyecto oficial del INTEF o de eXeLearning?</h3>
-          <p>No. Es un proyecto independiente y no está afiliado oficialmente con el INTEF ni con eXeLearning.</p>
+          <h3 data-i18n="faq_1_title">¿Es un proyecto oficial del INTEF o de eXeLearning?</h3>
+          <p data-i18n="faq_1_body">No. Es un proyecto independiente y no está afiliado oficialmente con el INTEF ni con eXeLearning.</p>
         </article>
         <article class="faq-item">
-          <h3>¿Necesito internet siempre?</h3>
-          <p>No. La primera vez puede hacer falta para descargar el modelo y también para comprobar si hay nuevas versiones. Después, la traducción trabaja en local.</p>
+          <h3 data-i18n="faq_2_title">¿Necesito internet siempre?</h3>
+          <p data-i18n="faq_2_body">No. La primera vez puede hacer falta para descargar el modelo y también para comprobar si hay nuevas versiones. Después, la traducción trabaja en local.</p>
         </article>
         <article class="faq-item">
-          <h3>¿Sirve para cualquier archivo perfecto a la primera?</h3>
-          <p>No conviene prometer eso. La aplicación está pensada para ahorrar mucho trabajo, pero siempre es recomendable revisar el resultado final antes de publicarlo.</p>
+          <h3 data-i18n="faq_3_title">¿Sirve para cualquier archivo perfecto a la primera?</h3>
+          <p data-i18n="faq_3_body">No conviene prometer eso. La aplicación está pensada para ahorrar mucho trabajo, pero siempre es recomendable revisar el resultado final antes de publicarlo.</p>
         </article>
         <article class="faq-item">
-          <h3>¿Qué hago si algo sale mal?</h3>
-          <p>Usa el enlace de sugerencias y errores. Si puedes, indica qué sistema operativo usas y adjunta el archivo o una explicación breve del problema.</p>
+          <h3 data-i18n="faq_4_title">¿Qué hago si algo sale mal?</h3>
+          <p data-i18n="faq_4_body">Usa el enlace de sugerencias y errores. Si puedes, indica qué sistema operativo usas y adjunta el archivo o una explicación breve del problema.</p>
         </article>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <p>ELPX Translator Desktop es un proyecto independiente para traducir archivos <code>.elpx</code>.</p>
-    <p class="footer-meta">Creado por <strong>Juan José de Haro</strong>.</p>
-    <p class="footer-meta">Software libre distribuido bajo licencia <strong>GNU AGPLv3 o posterior</strong>.</p>
+    <p data-i18n="footer_body" data-i18n-mode="html">ELPX Translator Desktop es un proyecto independiente para traducir archivos <code>.elpx</code>.</p>
+    <p class="footer-meta" data-i18n="footer_author" data-i18n-mode="html">Creado por <strong>Juan José de Haro</strong>.</p>
+    <p class="footer-meta" data-i18n="footer_license" data-i18n-mode="html">Software libre distribuido bajo licencia <strong>GNU AGPLv3 o posterior</strong>.</p>
     <p>
-      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io" target="_blank" rel="noopener noreferrer">Repositorio</a>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io" target="_blank" rel="noopener noreferrer" data-i18n="footer_repo">Repositorio</a>
       <span>·</span>
-      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/releases" target="_blank" rel="noopener noreferrer" data-i18n="footer_releases">Releases</a>
       <span>·</span>
-      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer">Sugerencias y errores</a>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="footer_issues">Sugerencias y errores</a>
     </p>
   </footer>
 

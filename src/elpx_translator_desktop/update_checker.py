@@ -21,6 +21,10 @@ class UpdateCheckWorker(QObject):
     update_found = Signal(str, str)
     finished = Signal()
 
+    def __init__(self, allow_prereleases: bool = False) -> None:
+        super().__init__()
+        self.allow_prereleases = allow_prereleases
+
     @Slot()
     def run(self) -> None:
         try:
@@ -31,7 +35,11 @@ class UpdateCheckWorker(QObject):
             with urllib.request.urlopen(request, timeout=8) as response:
                 payload = json.loads(response.read().decode('utf-8'))
 
-            release = select_update_release(payload, __version__)
+            release = select_update_release(
+                payload,
+                __version__,
+                allow_prereleases=self.allow_prereleases,
+            )
             if release:
                 self.update_found.emit(release['version'], release['url'])
         except Exception:
@@ -40,11 +48,16 @@ class UpdateCheckWorker(QObject):
             self.finished.emit()
 
 
-def select_update_release(releases_payload: object, current_version: str) -> dict[str, str] | None:
+def select_update_release(
+    releases_payload: object,
+    current_version: str,
+    allow_prereleases: bool | None = None,
+) -> dict[str, str] | None:
     if not isinstance(releases_payload, list):
         return None
 
-    allow_prereleases = is_prerelease_version(current_version)
+    if allow_prereleases is None:
+        allow_prereleases = is_prerelease_version(current_version)
     candidates: list[dict[str, str]] = []
     for release in releases_payload:
         if not isinstance(release, dict):

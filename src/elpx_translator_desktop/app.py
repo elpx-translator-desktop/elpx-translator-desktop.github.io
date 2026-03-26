@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -92,13 +93,19 @@ else:
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, performance_mode: str, ui_language: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        performance_mode: str,
+        ui_language: str,
+        receive_beta_updates: bool,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ui_language = ui_language
         self.setWindowTitle(tr(ui_language, 'settings_title'))
         self.setModal(True)
-        self.resize(460, 280)
-        self.setMinimumSize(440, 260)
+        self.resize(460, 340)
+        self.setMinimumSize(440, 320)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -133,6 +140,20 @@ class SettingsDialog(QDialog):
             self.performance_combo.setCurrentIndex(combo_index)
         layout.addWidget(self.performance_combo)
 
+        updates_title = QLabel(tr(ui_language, 'settings_updates'))
+        updates_title.setProperty('fieldLabel', True)
+        layout.addWidget(updates_title)
+
+        self.receive_beta_updates_checkbox = QCheckBox(tr(ui_language, 'settings_receive_beta_updates'))
+        self.receive_beta_updates_checkbox.setChecked(receive_beta_updates)
+        layout.addWidget(self.receive_beta_updates_checkbox)
+
+        updates_help_label = QLabel(tr(ui_language, 'settings_receive_beta_updates_help'))
+        updates_help_label.setWordWrap(True)
+        updates_help_label.setObjectName('infoLabel')
+        updates_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(updates_help_label)
+
         help_label = QLabel(tr(ui_language, 'settings_help'))
         help_label.setWordWrap(True)
         help_label.setObjectName('infoLabel')
@@ -157,6 +178,9 @@ class SettingsDialog(QDialog):
 
     def selected_ui_language(self) -> str:
         return str(self.ui_language_combo.currentData())
+
+    def selected_receive_beta_updates(self) -> bool:
+        return self.receive_beta_updates_checkbox.isChecked()
 
 
 class AboutDialog(QDialog):
@@ -192,6 +216,10 @@ class AboutDialog(QDialog):
             <p><a href="{PROJECT_ISSUES_URL}">{tr(ui_language, 'about_issues_link')}</a></p>
             <h3>{tr(ui_language, 'about_credits')}</h3>
             <p>{tr(ui_language, 'about_credits_body')}</p>
+            <h4>{tr(ui_language, 'about_models_title')}</h4>
+            <p>{tr(ui_language, 'about_models_body')}</p>
+            <h4>{tr(ui_language, 'about_tech_title')}</h4>
+            <p>{tr(ui_language, 'about_tech_body')}</p>
             ''',
         )
         layout.addWidget(browser, 1)
@@ -345,6 +373,8 @@ class MainWindow(QMainWindow):
         self.settings = QSettings('Juanjo', 'ELPXTranslatorDesktop')
         self.ui_language = self._load_ui_language()
         self.performance_mode = self._load_performance_mode()
+        self.preferred_target_language = self._load_target_language()
+        self.receive_beta_updates = self._load_receive_beta_updates()
         self.current_status = 'waiting'
 
         self._build_ui()
@@ -379,22 +409,30 @@ class MainWindow(QMainWindow):
         self.settings_button = QToolButton()
         self.settings_button.setObjectName('headerIconButton')
         self.settings_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.settings_button.setFixedSize(52, 52)
         self.settings_button.clicked.connect(self._open_settings)
         header_layout.addWidget(self.settings_button)
+        header_layout.setAlignment(self.settings_button, Qt.AlignmentFlag.AlignVCenter)
 
         self.website_button = QPushButton('')
         self.website_button.setObjectName('headerActionButton')
+        self.website_button.setFixedHeight(52)
         self.website_button.clicked.connect(self._open_project_website)
         header_layout.addWidget(self.website_button)
+        header_layout.setAlignment(self.website_button, Qt.AlignmentFlag.AlignVCenter)
 
         self.about_button = QPushButton('')
         self.about_button.setObjectName('headerActionButton')
+        self.about_button.setFixedHeight(52)
         self.about_button.clicked.connect(self._open_about_dialog)
         header_layout.addWidget(self.about_button)
+        header_layout.setAlignment(self.about_button, Qt.AlignmentFlag.AlignVCenter)
 
         self.status_chip = QLabel('')
         self.status_chip.setObjectName('statusChip')
+        self.status_chip.setFixedHeight(52)
         header_layout.addWidget(self.status_chip)
+        header_layout.setAlignment(self.status_chip, Qt.AlignmentFlag.AlignVCenter)
         root_layout.addWidget(header_card)
 
         self.update_banner = QLabel('')
@@ -439,6 +477,11 @@ class MainWindow(QMainWindow):
         self.current_message_label.setWordWrap(True)
         root_layout.addWidget(self.current_message_label)
 
+        self.active_model_label = QLabel('')
+        self.active_model_label.setObjectName('infoLabel')
+        self.active_model_label.setWordWrap(True)
+        root_layout.addWidget(self.active_model_label)
+
         self.settings_summary_label = QLabel('')
         self.settings_summary_label.setObjectName('infoLabel')
         root_layout.addWidget(self.settings_summary_label)
@@ -473,9 +516,10 @@ class MainWindow(QMainWindow):
         self.origin_combo = QComboBox()
         self.target_combo = QComboBox()
         self.language_labels = {code: label for code, label in LANGUAGE_OPTIONS}
-        self._rebuild_language_combos(DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE)
+        self._rebuild_language_combos(DEFAULT_SOURCE_LANGUAGE, self.preferred_target_language)
         self.origin_combo.currentIndexChanged.connect(self._sync_language_pairs)
         self.target_combo.currentIndexChanged.connect(self._sync_output_path_with_target_language)
+        self.target_combo.currentIndexChanged.connect(self._persist_target_language)
         self.target_combo.currentIndexChanged.connect(self._sync_language_pairs)
         controls_layout.addWidget(self.origin_combo, 5, 0)
         controls_layout.addWidget(self.target_combo, 5, 1)
@@ -589,18 +633,19 @@ class MainWindow(QMainWindow):
                 background: #ffffff;
                 border: 1px solid #d9d0c4;
                 border-radius: 14px;
-                padding: 8px;
-                min-width: 42px;
-                max-width: 42px;
-                min-height: 42px;
-                max-height: 42px;
+                padding: 0;
+                min-width: 52px;
+                max-width: 52px;
+                min-height: 52px;
+                max-height: 52px;
             }
             QPushButton#headerActionButton {
                 background: #ffffff;
                 border: 1px solid #d9d0c4;
                 border-radius: 14px;
                 padding: 0 16px;
-                min-height: 42px;
+                min-height: 52px;
+                max-height: 52px;
                 color: #30404c;
                 font-weight: 600;
             }
@@ -633,8 +678,9 @@ class MainWindow(QMainWindow):
                 color: #1d6c54;
                 border: 1px solid #c6e5d9;
                 border-radius: 14px;
-                padding: 0 18px;
-                min-height: 42px;
+                padding: 0 16px;
+                min-height: 52px;
+                max-height: 52px;
                 qproperty-alignment: AlignCenter;
                 font-weight: 700;
             }
@@ -774,6 +820,7 @@ class MainWindow(QMainWindow):
         self.log_view.setPlainText('')
         self._set_status('working')
         self.current_message_label.setText(tr(self.ui_language, 'preparing_translation'))
+        self.active_model_label.setText(tr(self.ui_language, 'active_model', model_label='-'))
         self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value='00:00'))
         self.eta_label.setText(tr(self.ui_language, 'eta', value='--:--'))
 
@@ -791,6 +838,14 @@ class MainWindow(QMainWindow):
     def _append_log(self, event: ProgressEvent) -> None:
         self._set_status(event.state)
         self.current_message_label.setText(event.message)
+        if event.active_model_label is not None:
+            self.active_model_label.setText(tr(self.ui_language, 'active_model', model_label=event.active_model_label))
+        if event.state == 'done':
+            self.last_eta_seconds = 0
+            self.eta_label.setText(tr(self.ui_language, 'eta', value=tr(self.ui_language, 'finished_eta')))
+        elif event.state in {'error', 'cancelled'}:
+            self.last_eta_seconds = None
+            self.eta_label.setText(tr(self.ui_language, 'eta', value='--:--'))
 
         if event.progress_percent is not None:
             self.progress_value = max(0.0, min(100.0, event.progress_percent))
@@ -878,16 +933,26 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, tr(self.ui_language, 'app_title'), message)
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self.performance_mode, self.ui_language, self)
+        dialog = SettingsDialog(
+            self.performance_mode,
+            self.ui_language,
+            self.receive_beta_updates,
+            self,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
 
         self.ui_language = dialog.selected_ui_language()
         self.performance_mode = dialog.selected_performance_mode()
+        self.receive_beta_updates = dialog.selected_receive_beta_updates()
         self.settings.setValue('ui_language', self.ui_language)
         self.settings.setValue('performance_mode', self.performance_mode)
+        self.settings.setValue('receive_beta_updates', self.receive_beta_updates)
+        self.latest_version = None
+        self.latest_version_url = None
         self._apply_ui_texts()
         self._refresh_settings_summary()
+        self._restart_update_check()
         if self.running:
             self._append_log(
                 ProgressEvent(
@@ -933,6 +998,7 @@ class MainWindow(QMainWindow):
 
         self._set_combo_languages(self.origin_combo, source_options, source_language)
         self._set_combo_languages(self.target_combo, target_options, target_language)
+        self._persist_target_language()
 
     def _sync_language_pairs(self) -> None:
         source_language = self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE
@@ -971,9 +1037,39 @@ class MainWindow(QMainWindow):
             return configured_value
         return detect_ui_language()
 
+    def _load_target_language(self) -> str:
+        configured_value = self.settings.value('target_language', DEFAULT_TARGET_LANGUAGE)
+        if isinstance(configured_value, str) and configured_value in SUPPORTED_LANGUAGE_CODES:
+            return configured_value
+        return DEFAULT_TARGET_LANGUAGE
+
+    def _load_receive_beta_updates(self) -> bool:
+        configured_value = self.settings.value('receive_beta_updates', False)
+        if isinstance(configured_value, bool):
+            return configured_value
+        if isinstance(configured_value, str):
+            return configured_value.strip().lower() in {'1', 'true', 'yes'}
+        if isinstance(configured_value, int):
+            return configured_value != 0
+        return False
+
+    def _persist_target_language(self) -> None:
+        target_language = self.target_combo.currentData()
+        if isinstance(target_language, str) and target_language in SUPPORTED_LANGUAGE_CODES:
+            self.preferred_target_language = target_language
+            self.settings.setValue('target_language', target_language)
+
     def _refresh_settings_summary(self) -> None:
         self.settings_summary_label.setText(
-            tr(self.ui_language, 'performance_summary', value=performance_label(self.ui_language, self.performance_mode)),
+            tr(
+                self.ui_language,
+                'settings_summary',
+                performance=performance_label(self.ui_language, self.performance_mode),
+                updates=tr(
+                    self.ui_language,
+                    'beta_updates_enabled' if self.receive_beta_updates else 'beta_updates_disabled',
+                ),
+            ),
         )
 
     def _cancel_translation(self) -> None:
@@ -1011,6 +1107,7 @@ class MainWindow(QMainWindow):
             self.current_message_label.setText(tr(self.ui_language, 'select_and_start'))
             self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value='00:00'))
             self.eta_label.setText(tr(self.ui_language, 'eta', value='--:--'))
+            self.active_model_label.setText(tr(self.ui_language, 'active_model', model_label='-'))
         self._set_status(self.current_status)
         self._refresh_update_banner()
 
@@ -1031,7 +1128,7 @@ class MainWindow(QMainWindow):
 
     def _start_update_check(self) -> None:
         self.update_thread = QThread(self)
-        self.update_worker = UpdateCheckWorker()
+        self.update_worker = UpdateCheckWorker(allow_prereleases=self.receive_beta_updates)
         self.update_worker.moveToThread(self.update_thread)
         self.update_thread.started.connect(self.update_worker.run)
         self.update_worker.update_found.connect(self._handle_update_found)
@@ -1040,6 +1137,12 @@ class MainWindow(QMainWindow):
         self.update_thread.finished.connect(self._clear_update_thread)
         self.update_thread.finished.connect(self.update_thread.deleteLater)
         self.update_thread.start()
+
+    def _restart_update_check(self) -> None:
+        if self.update_thread is not None and self.update_thread.isRunning():
+            self.update_thread.quit()
+            self.update_thread.wait(2000)
+        self._start_update_check()
 
     @Slot(str, str)
     def _handle_update_found(self, version: str, url: str) -> None:

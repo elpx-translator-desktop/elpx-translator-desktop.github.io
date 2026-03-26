@@ -52,6 +52,7 @@ code {
   justify-content: space-between;
   align-items: center;
   gap: 24px;
+  flex-wrap: wrap;
   padding: 26px 0 10px;
 }
 
@@ -72,12 +73,37 @@ code {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
+  align-items: center;
 }
 
 .top-links a {
   text-decoration: none;
   color: var(--muted);
   font-weight: 600;
+}
+
+.language-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(221, 209, 189, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.language-picker select {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+}
+
+.language-picker select:focus {
+  outline: none;
 }
 
 .hero-body {
@@ -363,5 +389,10 @@ h3 {
   .top-links {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .language-picker {
+    width: 100%;
+    justify-content: space-between;
   }
 }

@@ -11,6 +11,7 @@ class TranslationCancelledError(Exception):
 class ProgressEvent:
     message: str
     state: str = 'working'
+    active_model_label: str | None = None
     progress_percent: float | None = None
     completed_units: int | None = None
     total_units: int | None = None

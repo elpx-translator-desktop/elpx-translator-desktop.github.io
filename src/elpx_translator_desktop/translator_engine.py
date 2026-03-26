@@ -79,6 +79,7 @@ class TranslationEngine:
         progress_callback(
             ProgressEvent(
                 tr(self.ui_language, 'model_prepare', model_label=model_config.label),
+                active_model_label=model_config.label,
                 transient=True,
             ),
         )
@@ -99,10 +100,11 @@ class TranslationEngine:
             progress_callback(
                 ProgressEvent(
                     tr(self.ui_language, priority_message_key),
+                    active_model_label=model_config.label,
                 ),
             )
 
-        progress_callback(ProgressEvent(runtime_profile.describe(self.ui_language)))
+        progress_callback(ProgressEvent(runtime_profile.describe(self.ui_language), active_model_label=model_config.label))
 
         progress_callback(
             ProgressEvent(
@@ -112,6 +114,7 @@ class TranslationEngine:
                     device=runtime_profile.device,
                     compute_type=runtime_profile.compute_type,
                 ),
+                active_model_label=model_config.label,
                 transient=True,
             ),
         )
