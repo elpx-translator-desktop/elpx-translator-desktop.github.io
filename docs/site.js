@@ -649,7 +649,7 @@ function applyStaticTranslations(language) {
 }
 
 function parseVersion(tag) {
-  const match = String(tag || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:(?:~beta|b)(\d+))?$/i);
+  const match = String(tag || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:(?:[~-]?beta|b)(\d+))?$/i);
   if (!match) return null;
 
   return {
