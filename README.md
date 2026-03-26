@@ -48,6 +48,7 @@ Notas:
 - macOS genera una imagen `.dmg`.
 - La primera ejecucion seguira descargando el modelo si no esta en la cache local del usuario.
 - GitHub Actions genera artefactos nativos para Linux, Windows y macOS en cada release.
+- La secuencia correcta para publicar versiones y evitar errores de versionado esta en `RELEASING.md`.
 
 ## Notas
 
