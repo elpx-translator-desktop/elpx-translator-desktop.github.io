@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=packaging/linux/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
-APP_VERSION="$(app_version)"
+APP_VERSION="$(deb_app_version)"
 ARCH="$(app_arch)"
 
 if [[ "${SKIP_DIST_BUILD:-0}" != "1" ]]; then

@@ -22,6 +22,16 @@ PY
     )
 }
 
+deb_app_version() {
+    local version
+    version="$(app_version)"
+    if [[ "${version}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)b([0-9]+)$ ]]; then
+        printf '%s~beta%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+        return
+    fi
+    printf '%s\n' "${version}"
+}
+
 app_arch() {
     dpkg --print-architecture
 }
