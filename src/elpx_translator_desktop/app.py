@@ -4,7 +4,6 @@ import html
 import importlib.resources as resources
 import sys
 import time
-import unicodedata
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, QUrl, Signal, Slot
@@ -474,17 +473,6 @@ class MainWindow(QMainWindow):
         self.origin_combo = QComboBox()
         self.target_combo = QComboBox()
         self.language_labels = {code: label for code, label in LANGUAGE_OPTIONS}
-        self.language_sort_labels = {
-            'ar': 'arabe',
-            'bn': 'bangla',
-            'nl': 'neerlandes',
-            'pl': 'polaco',
-            'ru': 'ruso',
-            'tr': 'turco',
-            'uk': 'ucraniano',
-            'ur': 'urdu',
-            'zh': 'chino',
-        }
         self._rebuild_language_combos(DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE)
         self.origin_combo.currentIndexChanged.connect(self._sync_language_pairs)
         self.target_combo.currentIndexChanged.connect(self._sync_output_path_with_target_language)
@@ -924,7 +912,7 @@ class MainWindow(QMainWindow):
     def _set_combo_languages(self, combo: QComboBox, language_codes: list[str], selected_code: str) -> None:
         combo.blockSignals(True)
         combo.clear()
-        for code in sorted(language_codes, key=self._language_sort_key):
+        for code in sorted(language_codes):
             combo.addItem(f'{code} · {self.language_labels[code]}', code)
 
         combo_index = combo.findData(selected_code)
@@ -933,11 +921,6 @@ class MainWindow(QMainWindow):
         if combo_index >= 0:
             combo.setCurrentIndex(combo_index)
         combo.blockSignals(False)
-
-    def _language_sort_key(self, code: str) -> str:
-        label = self.language_sort_labels.get(code, self.language_labels[code])
-        normalized = unicodedata.normalize('NFKD', label)
-        return ''.join(char for char in normalized if not unicodedata.combining(char)).casefold()
 
     def _rebuild_language_combos(self, source_language: str, target_language: str) -> None:
         source_options = supported_source_languages(target_language)

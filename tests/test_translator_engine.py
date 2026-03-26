@@ -64,6 +64,24 @@ class TranslatorEngineTests(unittest.TestCase):
 
         self.assertEqual(translated, ['Zer beste materialak'])
 
+    def test_removes_model_unknown_token_artifacts(self) -> None:
+        engine = TranslationEngine()
+        engine._translator = FakeTranslator([['__es__', 'No', 'era', 'eso!', '<unk>', 'Error!']])
+        engine._tokenizer = FakeTokenizer()
+        engine._runtime_profile = SimpleNamespace(batch_size=8)
+        engine._model_config = MODEL_CONFIG
+        engine._model_key = MODEL_CONFIG.repo_id
+
+        translated = engine.translate_texts(
+            ['No era eso'],
+            source_language='en',
+            target_language='es',
+            progress_callback=lambda _: None,
+            progress_label='test',
+        )
+
+        self.assertEqual(translated, ['No era eso! Error!'])
+
 
 class FakeTokenizer:
     lang_code_to_token = {'es': '__es__', 'en': '__en__', 'eu': '__eu__'}

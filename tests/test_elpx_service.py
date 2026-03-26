@@ -57,6 +57,30 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertIn('[[Utilizaremos este iDevice para]] <strong>', translated)
         self.assertIn('</strong> [[en las que podrá utilizar texto.]]', translated)
 
+    def test_preserves_numeric_list_prefixes_in_html(self) -> None:
+        html = (
+            '<ol>'
+            '<li>1. Instalar eXeLearning</li>'
+            '<li>2. Crear la estructura</li>'
+            '<li>5. Guardar y publicar</li>'
+            '</ol>'
+        )
+
+        translated = self.service._translate_html_fragment(html, self.tracker, self.options, 'test')
+
+        self.assertIn('<li>1. [[Instalar eXeLearning]]</li>', translated)
+        self.assertIn('<li>2. [[Crear la estructura]]</li>', translated)
+        self.assertIn('<li>5. [[Guardar y publicar]]</li>', translated)
+
+    def test_skips_nontranslatable_scalars_in_html(self) -> None:
+        html = '<div><span>00:00</span><span>#000000</span><span>02/12/25</span></div>'
+
+        translated = self.service._translate_html_fragment(html, self.tracker, self.options, 'test')
+
+        self.assertIn('<span>00:00</span>', translated)
+        self.assertIn('<span>#000000</span>', translated)
+        self.assertIn('<span>02/12/25</span>', translated)
+
     def test_skips_translating_encoded_game_payloads(self) -> None:
         payload = '%E9%B0%E6%EB%E2%F7%D5%F3%FF%F7%B0%A8%B0%C1%FD%E2%F3%B0%BE%B0%FB%FC%E1%E6%E0%E7'
         html = (
@@ -71,6 +95,15 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertIn('[[Encuentra palabras]]', translated)
         self.assertIn(payload, translated)
         self.assertNotIn(f'[[{payload}]]', translated)
+
+    def test_preserves_cloze_markers_inside_html_text(self) -> None:
+        html = '<p>La célula es la unidad @@morfológica|mitocondria|cloroplasto@@ y de todo @@ser vivo@@.</p>'
+
+        translated = self.service._translate_html_fragment(html, self.tracker, self.options, 'test')
+
+        self.assertIn('[[La célula es la unidad', translated)
+        self.assertIn('@@[[morfológica]]|[[mitocondria]]|[[cloroplasto]]@@', translated)
+        self.assertIn('@@[[ser vivo]]@@', translated)
 
     def test_translates_json_payloads_inside_html_without_corrupting_them(self) -> None:
         html = (
@@ -120,6 +153,14 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertEqual(parsed['i18n']['start'], '[[Inicio]]')
         self.assertEqual(parsed['i18n']['score'], '[[Puntuación]]')
 
+    def test_preserves_game_runtime_payloads_embedded_in_html(self) -> None:
+        payload = '{"typeGame":"Trivial","instructions":"Contesta","msgs":{"msgPlayStart":"Pulse aquí para empezar"}}'
+        html = f'<div class="trivial-DataGame js-hidden">{payload}</div>'
+
+        translated = self.service._translate_html_fragment(html, self.tracker, self.options, 'test')
+
+        self.assertIn(payload, translated)
+
     def test_reuses_translated_htmlview_inside_json_properties(self) -> None:
         engine = CountingEngine()
         service = ElpxTranslationService(engine=engine)
@@ -137,6 +178,102 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertEqual(translated['textTextarea'], 'TRANSLATED_HTML')
         self.assertEqual(translated['label'], '[[Otro texto]]')
         self.assertEqual(engine.calls, [['Otro texto']])
+
+    def test_skips_nontranslatable_json_scalars_used_by_magnifier(self) -> None:
+        engine = CountingEngine()
+        service = ElpxTranslationService(engine=engine)
+
+        translated = service._translate_json_value(
+            {
+                'textTextarea': '<p>Elige el nivel de aumento</p>',
+                'width': '400',
+                'align': 'right',
+                'color': '#000000',
+                'glassSize': '2',
+            },
+            self.tracker,
+            self.options,
+            'test',
+        )
+
+        self.assertEqual(translated['textTextarea'], '<p>[[Elige el nivel de aumento]]</p>')
+        self.assertEqual(translated['width'], '400')
+        self.assertEqual(translated['align'], 'right')
+        self.assertEqual(translated['color'], '#000000')
+        self.assertEqual(translated['glassSize'], '2')
+        self.assertEqual(engine.calls, [['Elige el nivel de aumento']])
+
+    def test_skips_form_internal_type_fields(self) -> None:
+        engine = CountingEngine()
+        service = ElpxTranslationService(engine=engine)
+
+        translated = service._translate_json_value(
+            {
+                'activityType': 'true-false',
+                'selectionType': 'single',
+                'baseText': '<p>Pregunta</p>',
+            },
+            self.tracker,
+            self.options,
+            'test',
+        )
+
+        self.assertEqual(translated['activityType'], 'true-false')
+        self.assertEqual(translated['selectionType'], 'single')
+        self.assertEqual(translated['baseText'], '<p>[[Pregunta]]</p>')
+        self.assertEqual(engine.calls, [['Pregunta']])
+
+    def test_skips_hex_color_values_inside_json_payloads(self) -> None:
+        engine = CountingEngine()
+        service = ElpxTranslationService(engine=engine)
+
+        translated = service._translate_json_value(
+            {'label': 'Otro texto', 'color': '#000000'},
+            self.tracker,
+            self.options,
+            'test',
+        )
+
+        self.assertEqual(translated['label'], '[[Otro texto]]')
+        self.assertEqual(translated['color'], '#000000')
+        self.assertEqual(engine.calls, [['Otro texto']])
+
+    def test_skips_msgs_subtrees_in_game_payloads(self) -> None:
+        engine = CountingEngine()
+        service = ElpxTranslationService(engine=engine)
+
+        translated = service._translate_json_value(
+            {
+                'instructions': 'Contesta la pregunta',
+                'msgs': {
+                    'msgPlayStart': 'Pulse aquí para empezar',
+                    'msgFailures': 'No era eso',
+                },
+            },
+            self.tracker,
+            self.options,
+            'test',
+        )
+
+        self.assertEqual(translated['instructions'], '[[Contesta la pregunta]]')
+        self.assertEqual(
+            translated['msgs'],
+            {
+                'msgPlayStart': 'Pulse aquí para empezar',
+                'msgFailures': 'No era eso',
+            },
+        )
+        self.assertEqual(engine.calls, [['Contesta la pregunta']])
+
+    def test_extracts_cloze_options_for_translation_memory(self) -> None:
+        texts = self.service._extract_html_texts(
+            '<p>La célula es @@morfológica|mitocondria|cloroplasto@@ y @@ser vivo@@.</p>',
+        )
+
+        self.assertIn('morfológica', texts)
+        self.assertIn('mitocondria', texts)
+        self.assertIn('cloroplasto', texts)
+        self.assertIn('ser vivo', texts)
 
     def test_count_json_units_skips_reused_htmlview(self) -> None:
         html = '<div class="exe-text"><p>Texto repetido</p></div>'
@@ -187,6 +324,25 @@ class ElpxServiceHtmlTests(unittest.TestCase):
         self.assertIn('[[Texto cuatro]]', translated)
         self.assertEqual(len(engine.calls), 1)
         self.assertEqual(engine.calls[0], ['Portada', 'Texto uno', 'Texto dos', 'Texto tres', 'Texto cuatro'])
+
+    def test_primes_numeric_list_texts_without_prefixes(self) -> None:
+        engine = CountingEngine()
+        service = ElpxTranslationService(engine=engine)
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<root>'
+            '<odeComponent>'
+            '<htmlView><![CDATA[<ol><li>1. Instalar eXeLearning</li><li>2. Instalar eXeLearning</li></ol>]]></htmlView>'
+            '</odeComponent>'
+            '</root>'
+        )
+
+        translated = service._translate_content_xml(xml, self.options, lambda event: None)
+
+        self.assertIn('1. [[Instalar eXeLearning]]', translated)
+        self.assertIn('2. [[Instalar eXeLearning]]', translated)
+        self.assertEqual(len(engine.calls), 1)
+        self.assertEqual(engine.calls[0], ['Instalar eXeLearning'])
 
     def test_updates_project_language_metadata_to_target_language(self) -> None:
         xml = (

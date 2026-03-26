@@ -8,6 +8,13 @@ HASHLIKE_RE = re.compile(r'^[A-Za-z0-9_-]{20,}$')
 HTML_RE = re.compile(r'</?[a-z][\s\S]*>', re.I)
 PERCENT_ENCODED_CHUNK_RE = re.compile(r'%[0-9A-Fa-f]{2}')
 BASE64ISH_RE = re.compile(r'^[A-Za-z0-9+/=_-]{80,}$')
+NUMERIC_LIST_PREFIX_RE = re.compile(r'^(?P<prefix>\(?\d+\)?[.)](?:\s+)?)(?P<rest>(?!\d)\S[\s\S]*)$')
+JSON_NUMERIC_VALUE_RE = re.compile(r'^[+-]?\d+(?:[.,]\d+)?$')
+HEX_COLOR_RE = re.compile(r'^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$')
+TIME_LIKE_RE = re.compile(r'^\d{1,2}:\d{2}(?::\d{2})?$')
+DATE_LIKE_RE = re.compile(r'^\d{1,2}/\d{1,2}/\d{2,4}$')
+MODEL_ARTIFACT_RE = re.compile(r'\s*<unk>\s*', re.I)
+CLOZE_MARKER_RE = re.compile(r'@@(?P<body>[^@]+?)@@')
 
 
 def split_long_text(text: str, max_length: int = 420) -> list[str]:
@@ -97,6 +104,73 @@ def split_surrounding_whitespace(text: str) -> tuple[str, str, str]:
     trailing = trailing_match.group(0) if trailing_match else ''
     core = text[len(leading) : len(text) - len(trailing) if trailing else len(text)]
     return leading, core, trailing
+
+
+def split_numeric_list_prefix(text: str) -> tuple[str, str]:
+    match = NUMERIC_LIST_PREFIX_RE.match(text)
+    if not match:
+        return '', text
+    return match.group('prefix'), match.group('rest')
+
+
+def looks_like_nontranslatable_scalar(value: str) -> bool:
+    trimmed = value.strip()
+    if not trimmed:
+        return True
+    if JSON_NUMERIC_VALUE_RE.fullmatch(trimmed):
+        return True
+    if TIME_LIKE_RE.fullmatch(trimmed):
+        return True
+    if DATE_LIKE_RE.fullmatch(trimmed):
+        return True
+    return bool(HEX_COLOR_RE.fullmatch(trimmed))
+
+
+def sanitize_translated_text(text: str) -> str:
+    cleaned = MODEL_ARTIFACT_RE.sub(' ', text)
+    return re.sub(r'\s{2,}', ' ', cleaned).strip()
+
+
+def contains_cloze_markers(text: str) -> bool:
+    return bool(CLOZE_MARKER_RE.search(text))
+
+
+def extract_cloze_marker_texts(text: str) -> list[str]:
+    extracted: list[str] = []
+    for match in CLOZE_MARKER_RE.finditer(text):
+        extracted.extend(part.strip() for part in match.group('body').split('|') if part.strip())
+    return extracted
+
+
+def replace_cloze_markers_with_tokens(text: str) -> tuple[str, list[str]]:
+    markers: list[str] = []
+
+    def replace(match: re.Match) -> str:
+        token = f'__ELPX_CLOZE_{len(markers)}__'
+        markers.append(match.group(0))
+        return token
+
+    return CLOZE_MARKER_RE.sub(replace, text), markers
+
+
+def restore_cloze_marker_tokens(text: str, markers: list[str]) -> str:
+    restored = text
+    for index, marker in enumerate(markers):
+        restored = restored.replace(f'__ELPX_CLOZE_{index}__', marker)
+    return restored
+
+
+def translate_cloze_marker(marker: str, translated_parts: list[str]) -> str:
+    match = CLOZE_MARKER_RE.fullmatch(marker)
+    if not match:
+        return marker
+
+    separator = '|' if '|' in match.group('body') else ''
+    if separator:
+        return f"@@{'|'.join(translated_parts)}@@"
+    if translated_parts:
+        return f'@@{translated_parts[0]}@@'
+    return marker
 
 
 def looks_like_encoded_payload(value: str) -> bool:

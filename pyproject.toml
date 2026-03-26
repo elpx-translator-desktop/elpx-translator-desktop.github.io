@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'elpx-translator-desktop'
-version = '0.1.5b9'
+version = '0.1.5b10'
 description = 'Aplicacion de escritorio para traducir archivos .elpx localmente'
 readme = 'README.md'
 requires-python = '>=3.11'

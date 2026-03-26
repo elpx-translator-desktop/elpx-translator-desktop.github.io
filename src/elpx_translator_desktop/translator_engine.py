@@ -11,7 +11,7 @@ from transformers import AutoTokenizer
 
 from .config import DEFAULT_PERFORMANCE_MODE, EUSKERA_MODEL_CONFIGS, MODEL_CONFIG, ModelConfig
 from .progress import ProgressEvent, TranslationCancelledError
-from .text_utils import split_long_text
+from .text_utils import sanitize_translated_text, split_long_text
 from .ui_i18n import tr
 
 
@@ -215,7 +215,9 @@ class TranslationEngine:
                 hypothesis = output.hypotheses[0]
                 if self._model_config.model_type == 'm2m100':
                     hypothesis = hypothesis[1:]
-                text = tokenizer.decode(tokenizer.convert_tokens_to_ids(hypothesis), skip_special_tokens=True).strip()
+                text = sanitize_translated_text(
+                    tokenizer.decode(tokenizer.convert_tokens_to_ids(hypothesis), skip_special_tokens=True).strip(),
+                )
                 results[job['result_index']].append(text or job['text'])
 
                 if job['result_index'] not in completed_units and len(results[job['result_index']]) == job['chunk_count']:

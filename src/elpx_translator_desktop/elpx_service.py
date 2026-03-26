@@ -12,12 +12,19 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 from .config import EXCLUDED_HTML_TAGS, HTML_TRANSLATABLE_ATTRIBUTES, JSON_SKIP_KEYS
 from .progress import ProgressEvent, TranslationCancelledError
 from .text_utils import (
+    contains_cloze_markers,
+    extract_cloze_marker_texts,
     is_translatable_text,
     looks_like_encoded_payload,
     looks_like_html,
+    looks_like_nontranslatable_scalar,
     looks_like_json_payload,
     looks_like_reference,
+    replace_cloze_markers_with_tokens,
+    restore_cloze_marker_tokens,
+    split_numeric_list_prefix,
     split_surrounding_whitespace,
+    translate_cloze_marker,
 )
 from .translator_engine import TranslationEngine
 from .ui_i18n import tr
@@ -149,10 +156,16 @@ class ElpxTranslationService:
         pending_texts: list[str] = []
         seen: set[str] = set()
         for text in texts:
-            if text in tracker.translation_memory or text in seen:
+            _, translatable_text = split_numeric_list_prefix(text)
+            extracted_cloze_texts = extract_cloze_marker_texts(translatable_text)
+            candidate_texts = [translatable_text] if not extracted_cloze_texts else extracted_cloze_texts
+            if all(candidate in tracker.translation_memory or candidate in seen for candidate in candidate_texts):
                 continue
-            seen.add(text)
-            pending_texts.append(text)
+            for candidate in candidate_texts:
+                if candidate in tracker.translation_memory or candidate in seen:
+                    continue
+                seen.add(candidate)
+                pending_texts.append(candidate)
 
         if not pending_texts:
             return
@@ -338,6 +351,9 @@ class ElpxTranslationService:
         key: str = '',
         html_reuse_map: dict[str, str] | None = None,
     ):
+        if self._should_skip_json_subtree(key, value):
+            return value
+
         if isinstance(value, str):
             if self._should_skip_json_value(key, value):
                 return value
@@ -380,21 +396,36 @@ class ElpxTranslationService:
         if not text_nodes:
             return []
 
+        cloze_results = self._translate_texts_with_cloze_markers(text_nodes, tracker, options, progress_label)
+        if cloze_results:
+            return cloze_results
+
         texts = [text for _, text in text_nodes]
 
         results: list[str | None] = [None] * len(texts)
         pending_texts: list[str] = []
         pending_indexes: dict[str, list[int]] = {}
+        numeric_prefixes: list[str] = []
 
         for index, text in enumerate(texts):
+            prefix, translatable_text = split_numeric_list_prefix(text)
+            numeric_prefixes.append(prefix)
+
             cached = tracker.translation_memory.get(text)
             if cached:
                 results[index] = cached
                 continue
 
-            pending_indexes.setdefault(text, []).append(index)
-            if len(pending_indexes[text]) == 1:
-                pending_texts.append(text)
+            cached = tracker.translation_memory.get(translatable_text)
+            if cached:
+                translated = f'{prefix}{cached}'
+                results[index] = translated
+                tracker.translation_memory[text] = translated
+                continue
+
+            pending_indexes.setdefault(translatable_text, []).append(index)
+            if len(pending_indexes[translatable_text]) == 1:
+                pending_texts.append(translatable_text)
 
         if pending_texts:
             translated = self.engine.translate_texts(
@@ -409,10 +440,79 @@ class ElpxTranslationService:
             for source_text, translated_text in zip(pending_texts, translated, strict=False):
                 tracker.translation_memory[source_text] = translated_text
                 for target_index in pending_indexes.get(source_text, []):
-                    results[target_index] = translated_text
+                    combined_text = f'{numeric_prefixes[target_index]}{translated_text}'
+                    results[target_index] = combined_text
+                    tracker.translation_memory[texts[target_index]] = combined_text
 
         tracker.complete_batch(len(texts))
         return [(text_nodes[index][0], item or texts[index]) for index, item in enumerate(results)]
+
+    def _translate_texts_with_cloze_markers(
+        self,
+        text_nodes: list[tuple[object, str]],
+        tracker: ProgressTracker,
+        options: TranslationOptions,
+        progress_label: str,
+    ) -> list[tuple[object, str]] | None:
+        if not any(contains_cloze_markers(text) for _, text in text_nodes):
+            return None
+
+        translated_nodes: list[tuple[object, str]] = []
+        for node, text in text_nodes:
+            translated_nodes.append(
+                (
+                    node,
+                    self._translate_text_preserving_cloze_markers(text, tracker, options, progress_label),
+                ),
+            )
+
+        tracker.complete_batch(len(text_nodes))
+        return translated_nodes
+
+    def _translate_text_preserving_cloze_markers(
+        self,
+        text: str,
+        tracker: ProgressTracker,
+        options: TranslationOptions,
+        progress_label: str,
+    ) -> str:
+        prefix, translatable_text = split_numeric_list_prefix(text)
+        masked_text, markers = replace_cloze_markers_with_tokens(translatable_text)
+        translated_text = self._translate_cached_plain_text(masked_text, tracker, options, progress_label)
+
+        restored_markers: list[str] = []
+        for marker in markers:
+            parts = extract_cloze_marker_texts(marker)
+            translated_parts = [
+                self._translate_cached_plain_text(part, tracker, options, progress_label)
+                for part in parts
+            ]
+            restored_markers.append(translate_cloze_marker(marker, translated_parts))
+
+        return f'{prefix}{restore_cloze_marker_tokens(translated_text, restored_markers)}'
+
+    def _translate_cached_plain_text(
+        self,
+        text: str,
+        tracker: ProgressTracker,
+        options: TranslationOptions,
+        progress_label: str,
+    ) -> str:
+        cached = tracker.translation_memory.get(text)
+        if cached:
+            return cached
+
+        translated = self.engine.translate_texts(
+            [text],
+            source_language=options.source_language,
+            target_language=options.target_language,
+            progress_callback=tracker.callback,
+            progress_label=progress_label,
+            progress_meta=tracker.create_batch_meta(1),
+            should_cancel=options.should_cancel,
+        )[0]
+        tracker.translation_memory[text] = translated
+        return translated
 
     def _count_component_units(self, component) -> int:
         total = 0
@@ -492,7 +592,8 @@ class ElpxTranslationService:
 
             _, core_text, _ = split_surrounding_whitespace(str(text_node))
             if self._should_translate_html_text(parent, core_text):
-                texts.append(core_text)
+                texts.append(split_numeric_list_prefix(core_text)[1])
+                texts.extend(extract_cloze_marker_texts(core_text))
 
         for element in root.find_all(True):
             if element.name in EXCLUDED_HTML_TAGS:
@@ -505,6 +606,9 @@ class ElpxTranslationService:
         return texts
 
     def _count_json_units(self, value, key: str = '', html_reuse_map: dict[str, str] | None = None) -> int:
+        if self._should_skip_json_subtree(key, value):
+            return 0
+
         if isinstance(value, str):
             if self._should_skip_json_value(key, value):
                 return 0
@@ -533,6 +637,9 @@ class ElpxTranslationService:
         key: str = '',
         html_reuse_values: set[str] | None = None,
     ) -> list[str]:
+        if self._should_skip_json_subtree(key, value):
+            return []
+
         if isinstance(value, str):
             if self._should_skip_json_value(key, value):
                 return []
@@ -542,7 +649,9 @@ class ElpxTranslationService:
                 return self._extract_json_texts(json.loads(value), html_reuse_values=html_reuse_values)
             if looks_like_html(value):
                 return self._extract_html_texts(value)
-            return [value]
+            extracted = [split_numeric_list_prefix(value)[1]]
+            extracted.extend(extract_cloze_marker_texts(value))
+            return extracted
 
         if isinstance(value, list):
             texts: list[str] = []
@@ -613,6 +722,10 @@ class ElpxTranslationService:
             return True
         if key in JSON_SKIP_KEYS:
             return True
+        if key.lower().endswith('type') and re.fullmatch(r'[A-Za-z][A-Za-z0-9-]*', trimmed):
+            return True
+        if looks_like_nontranslatable_scalar(trimmed):
+            return True
         if looks_like_reference(trimmed):
             return True
         if looks_like_encoded_payload(trimmed):
@@ -620,6 +733,10 @@ class ElpxTranslationService:
         if re.fullmatch(r'[A-Za-z0-9_-]{20,}', trimmed):
             return True
         return False
+
+    @staticmethod
+    def _should_skip_json_subtree(key: str, value) -> bool:
+        return key == 'msgs' and isinstance(value, dict)
 
     @staticmethod
     def _should_translate_html_text(parent, text: str) -> bool:
@@ -632,6 +749,8 @@ class ElpxTranslationService:
         if looks_like_encoded_payload(trimmed):
             return False
         if looks_like_json_payload(trimmed):
+            return False
+        if looks_like_nontranslatable_scalar(trimmed):
             return False
 
         return is_translatable_text(trimmed)
@@ -677,6 +796,8 @@ class ElpxTranslationService:
         html_reuse_map: dict[str, str] | None = None,
     ) -> str:
         parsed = json.loads(value)
+        if self._should_skip_serialized_json_payload(parsed):
+            return value
         translated = self._translate_json_value(
             parsed,
             tracker,
@@ -688,7 +809,13 @@ class ElpxTranslationService:
 
     def _count_serialized_json_payload_units(self, value: str, html_reuse_map: dict[str, str] | None = None) -> int:
         parsed = json.loads(value)
+        if self._should_skip_serialized_json_payload(parsed):
+            return 0
         return self._count_json_units(parsed, html_reuse_map=html_reuse_map)
+
+    @staticmethod
+    def _should_skip_serialized_json_payload(value) -> bool:
+        return isinstance(value, dict) and isinstance(value.get('msgs'), dict)
 
     @staticmethod
     def _protect_raw_json_html_blocks(html: str, transform=None) -> tuple[str, list[tuple[str, str, str]]]:
