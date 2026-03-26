@@ -41,7 +41,20 @@ jobs:
                   print(__version__)
                   PY
                   )"
+                  DEB_VERSION="$(python3 - <<'PY'
+                  import re
+                  import sys
+                  sys.path.insert(0, 'src')
+                  from elpx_translator_desktop import __version__
+                  version = __version__
+                  match = re.fullmatch(r'(\d+\.\d+\.\d+)b(\d+)', version)
+                  if match:
+                      version = f'{match.group(1)}~beta{match.group(2)}'
+                  print(version)
+                  PY
+                  )"
                   echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+                  echo "deb_version=${DEB_VERSION}" >> "$GITHUB_OUTPUT"
 
             - name: Download appimagetool
               run: |
@@ -57,7 +70,7 @@ jobs:
               with:
                   name: elpx-translator-desktop-linux
                   path: |
-                      elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+                      elpx-translator-desktop_${{ steps.version.outputs.deb_version }}_*.deb
                       elpx-translator-desktop-${{ steps.version.outputs.app_version }}-*.AppImage
 
             - name: Attach release asset
@@ -65,7 +78,7 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   files: |
-                      elpx-translator-desktop_${{ steps.version.outputs.app_version }}_*.deb
+                      elpx-translator-desktop_${{ steps.version.outputs.deb_version }}_*.deb
                       elpx-translator-desktop-${{ steps.version.outputs.app_version }}-*.AppImage
 
     build-windows:
