@@ -46,7 +46,7 @@ async function loadReleases() {
     if (!response.ok) throw new Error("GitHub API error");
     const releases = await response.json();
 
-    const stable = releases.find((release) => !release.prerelease && !release.draft && /^v?1\./i.test(release.tag_name || ""));
+    const stable = releases.find((release) => !release.prerelease && !release.draft);
     const beta = releases.find((release) => release.prerelease && !release.draft);
 
     renderRelease("stable-release", stable, "Sin release estable");
