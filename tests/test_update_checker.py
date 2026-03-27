@@ -26,6 +26,7 @@ class UpdateCheckerTests(unittest.TestCase):
         self.assertTrue(is_newer_version('0.1.5b6', '0.1.5b5'))
         self.assertFalse(is_newer_version('0.1.5b4', '0.1.5b5'))
         self.assertTrue(is_newer_version('0.1.7', '0.1.7~beta1'))
+        self.assertTrue(is_newer_version('v0.1.7-beta5', '0.1.7b4'))
 
     def test_stable_install_ignores_prereleases(self) -> None:
         releases = [
@@ -70,6 +71,17 @@ class UpdateCheckerTests(unittest.TestCase):
 
         self.assertIsNotNone(selected)
         self.assertEqual(selected['version'], 'v0.1.6b1')
+
+    def test_beta_install_detects_newer_github_beta_tag_format(self) -> None:
+        releases = [
+            {'tag_name': 'v0.1.7-beta5', 'html_url': 'https://example.test/beta75', 'prerelease': True, 'draft': False},
+            {'tag_name': 'v0.1.7-beta4', 'html_url': 'https://example.test/beta74', 'prerelease': True, 'draft': False},
+        ]
+
+        selected = select_update_release(releases, '0.1.7b4')
+
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected['version'], 'v0.1.7-beta5')
 
     def test_ignores_drafts_and_older_versions(self) -> None:
         releases = [

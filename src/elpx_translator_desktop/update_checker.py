@@ -94,12 +94,12 @@ def is_prerelease_version(value: str) -> bool:
 
 def prerelease_stage(value: str) -> str:
     cleaned = value.strip().lower().removeprefix('v')
-    if re.search(r'(?:alpha|a)\d*', cleaned):
-        return 'alpha'
     if re.search(r'(?:beta|b)\d*', cleaned):
         return 'beta'
     if re.search(r'rc\d*', cleaned):
         return 'rc'
+    if re.search(r'(?:alpha|a)\d*', cleaned):
+        return 'alpha'
     return 'stable'
 
 
