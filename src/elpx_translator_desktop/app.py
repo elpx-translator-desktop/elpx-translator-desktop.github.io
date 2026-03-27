@@ -194,6 +194,12 @@ class SettingsDialog(QDialog):
             self.performance_combo.setCurrentIndex(combo_index)
         translation_layout.addWidget(self.performance_combo)
 
+        performance_help_label = QLabel(tr(ui_language, 'settings_help'))
+        performance_help_label.setWordWrap(True)
+        performance_help_label.setObjectName('infoLabel')
+        performance_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        translation_layout.addWidget(performance_help_label)
+
         provider_title = QLabel(tr(ui_language, 'settings_translation_provider'))
         provider_title.setProperty('fieldLabel', True)
         translation_layout.addWidget(provider_title)
@@ -285,12 +291,6 @@ class SettingsDialog(QDialog):
         updates_help_label.setObjectName('infoLabel')
         updates_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         updates_layout.addWidget(updates_help_label)
-
-        help_label = QLabel(tr(ui_language, 'settings_help'))
-        help_label.setWordWrap(True)
-        help_label.setObjectName('infoLabel')
-        help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        updates_layout.addWidget(help_label)
 
         content_layout.addStretch()
 
@@ -747,6 +747,16 @@ class MainWindow(QMainWindow):
         self.update_banner.hide()
         root_layout.addWidget(self.update_banner)
 
+        self.active_model_label = QLabel('')
+        self.active_model_label.setObjectName('infoLabel')
+        self.active_model_label.setWordWrap(True)
+        root_layout.addWidget(self.active_model_label)
+
+        self.settings_summary_label = QLabel('')
+        self.settings_summary_label.setObjectName('infoLabel')
+        self.settings_summary_label.setWordWrap(True)
+        root_layout.addWidget(self.settings_summary_label)
+
         stats_card = self._make_card()
         stats_layout = QVBoxLayout(stats_card)
         stats_layout.setContentsMargins(20, 18, 20, 18)
@@ -781,15 +791,6 @@ class MainWindow(QMainWindow):
         self.current_message_label.setObjectName('messageLabel')
         self.current_message_label.setWordWrap(True)
         root_layout.addWidget(self.current_message_label)
-
-        self.active_model_label = QLabel('')
-        self.active_model_label.setObjectName('infoLabel')
-        self.active_model_label.setWordWrap(True)
-        root_layout.addWidget(self.active_model_label)
-
-        self.settings_summary_label = QLabel('')
-        self.settings_summary_label.setObjectName('infoLabel')
-        root_layout.addWidget(self.settings_summary_label)
 
         controls_card = self._make_card()
         controls_layout = QGridLayout(controls_card)
