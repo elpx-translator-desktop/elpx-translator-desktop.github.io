@@ -30,7 +30,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QStyle,
     QTextBrowser,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -132,6 +131,7 @@ class SettingsDialog(QDialog):
         self.api_keys = dict(api_keys)
         self.provider_models = dict(selected_models)
         self._displayed_provider = translation_provider
+        self._preferred_remote_provider = translation_provider if translation_provider != 'local' else 'openai'
         self._initializing = True
         self.setWindowTitle(tr(ui_language, 'settings_title'))
         self.setModal(True)
@@ -171,108 +171,6 @@ class SettingsDialog(QDialog):
             self.ui_language_combo.setCurrentIndex(combo_index)
         interface_layout.addWidget(self.ui_language_combo)
 
-        translation_card, translation_layout = self._make_settings_section(
-            tr(ui_language, 'settings_translation_section'),
-            tr(ui_language, 'settings_translation_section_help'),
-        )
-        content_layout.addWidget(translation_card)
-
-        title = QLabel(tr(ui_language, 'settings_performance'))
-        title.setProperty('fieldLabel', True)
-        translation_layout.addWidget(title)
-
-        self.performance_combo = QComboBox()
-        for code, _ in (
-            ('suave', ''),
-            ('equilibrado', ''),
-            ('rapido', ''),
-            ('maximo', ''),
-        ):
-            self.performance_combo.addItem(performance_label(ui_language, code), code)
-        combo_index = self.performance_combo.findData(performance_mode)
-        if combo_index >= 0:
-            self.performance_combo.setCurrentIndex(combo_index)
-        translation_layout.addWidget(self.performance_combo)
-
-        performance_help_label = QLabel(tr(ui_language, 'settings_help'))
-        performance_help_label.setWordWrap(True)
-        performance_help_label.setObjectName('infoLabel')
-        performance_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        translation_layout.addWidget(performance_help_label)
-
-        provider_title = QLabel(tr(ui_language, 'settings_translation_provider'))
-        provider_title.setProperty('fieldLabel', True)
-        translation_layout.addWidget(provider_title)
-
-        self.provider_combo = QComboBox()
-        for code, _label in TRANSLATION_PROVIDER_OPTIONS:
-            self.provider_combo.addItem(tr(ui_language, f'translation_provider_{code}'), code)
-        provider_index = self.provider_combo.findData(translation_provider)
-        if provider_index >= 0:
-            self.provider_combo.setCurrentIndex(provider_index)
-        self.provider_combo.currentIndexChanged.connect(self._handle_provider_changed)
-        translation_layout.addWidget(self.provider_combo)
-
-        self.provider_help_label = QLabel()
-        self.provider_help_label.setWordWrap(True)
-        self.provider_help_label.setObjectName('infoLabel')
-        translation_layout.addWidget(self.provider_help_label)
-
-        api_key_title = QLabel(tr(ui_language, 'settings_api_key'))
-        api_key_title.setProperty('fieldLabel', True)
-        translation_layout.addWidget(api_key_title)
-
-        self.api_key_edit = QLineEdit()
-        self.api_key_edit.setEchoMode(QLineEdit.PasswordEchoOnEdit)
-        self.api_key_edit.textEdited.connect(self._persist_current_provider_inputs)
-        self.api_key_edit.textChanged.connect(self._handle_api_key_text_changed)
-        api_key_row = QHBoxLayout()
-        api_key_row.setSpacing(10)
-        api_key_row.addWidget(self.api_key_edit, 1)
-        self.clear_api_key_button = QPushButton(tr(ui_language, 'clear_api_key'))
-        self.clear_api_key_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        self.clear_api_key_button.clicked.connect(self._clear_current_provider_api_key)
-        api_key_row.addWidget(self.clear_api_key_button)
-        translation_layout.addLayout(api_key_row)
-
-        self.api_key_url_label = QLabel()
-        self.api_key_url_label.setOpenExternalLinks(True)
-        self.api_key_url_label.setWordWrap(True)
-        self.api_key_url_label.setObjectName('infoLabel')
-        translation_layout.addWidget(self.api_key_url_label)
-
-        self.api_key_status_label = QLabel()
-        self.api_key_status_label.setWordWrap(True)
-        self.api_key_status_label.setObjectName('infoLabel')
-        translation_layout.addWidget(self.api_key_status_label)
-
-        model_title = QLabel(tr(ui_language, 'settings_remote_model'))
-        model_title.setProperty('fieldLabel', True)
-        translation_layout.addWidget(model_title)
-
-        model_row = QHBoxLayout()
-        model_row.setSpacing(10)
-        self.model_combo = QComboBox()
-        self.model_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.model_combo.currentIndexChanged.connect(self._persist_current_provider_inputs)
-        self.model_combo.currentIndexChanged.connect(self._refresh_provider_status_labels)
-        model_row.addWidget(self.model_combo, 1)
-        self.refresh_models_button = QPushButton(tr(ui_language, 'refresh_models'))
-        self.refresh_models_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        self.refresh_models_button.clicked.connect(self._refresh_remote_models)
-        model_row.addWidget(self.refresh_models_button)
-        translation_layout.addLayout(model_row)
-
-        self.model_help_label = QLabel(tr(ui_language, 'settings_model_help'))
-        self.model_help_label.setWordWrap(True)
-        self.model_help_label.setObjectName('infoLabel')
-        translation_layout.addWidget(self.model_help_label)
-
-        self.model_status_label = QLabel()
-        self.model_status_label.setWordWrap(True)
-        self.model_status_label.setObjectName('infoLabel')
-        translation_layout.addWidget(self.model_status_label)
-
         updates_card, updates_layout = self._make_settings_section(
             tr(ui_language, 'settings_updates_section'),
         )
@@ -291,6 +189,137 @@ class SettingsDialog(QDialog):
         updates_help_label.setObjectName('infoLabel')
         updates_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         updates_layout.addWidget(updates_help_label)
+
+        translation_card, translation_layout = self._make_settings_section(
+            tr(ui_language, 'settings_translation_section'),
+            tr(ui_language, 'settings_translation_section_help'),
+        )
+        content_layout.addWidget(translation_card)
+
+        mode_title = QLabel(tr(ui_language, 'settings_translation_provider'))
+        mode_title.setProperty('fieldLabel', True)
+        translation_layout.addWidget(mode_title)
+
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItem(tr(ui_language, 'translation_provider_local'), 'local')
+        self.mode_combo.addItem('API', 'api')
+        self.mode_combo.setCurrentIndex(0 if translation_provider == 'local' else 1)
+        self.mode_combo.currentIndexChanged.connect(self._handle_mode_changed)
+        translation_layout.addWidget(self.mode_combo)
+
+        self.performance_section = QWidget()
+        performance_layout = QVBoxLayout(self.performance_section)
+        performance_layout.setContentsMargins(0, 0, 0, 0)
+        performance_layout.setSpacing(10)
+
+        title = QLabel(tr(ui_language, 'settings_performance'))
+        title.setProperty('fieldLabel', True)
+        performance_layout.addWidget(title)
+
+        self.performance_combo = QComboBox()
+        for code, _ in (
+            ('suave', ''),
+            ('equilibrado', ''),
+            ('rapido', ''),
+            ('maximo', ''),
+        ):
+            self.performance_combo.addItem(performance_label(ui_language, code), code)
+        combo_index = self.performance_combo.findData(performance_mode)
+        if combo_index >= 0:
+            self.performance_combo.setCurrentIndex(combo_index)
+        performance_layout.addWidget(self.performance_combo)
+
+        performance_help_label = QLabel(tr(ui_language, 'settings_help'))
+        performance_help_label.setWordWrap(True)
+        performance_help_label.setObjectName('infoLabel')
+        performance_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        performance_layout.addWidget(performance_help_label)
+        translation_layout.addWidget(self.performance_section)
+
+        self.remote_section = QWidget()
+        remote_layout = QVBoxLayout(self.remote_section)
+        remote_layout.setContentsMargins(0, 0, 0, 0)
+        remote_layout.setSpacing(10)
+
+        provider_title = QLabel(tr(ui_language, 'settings_api_provider'))
+        provider_title.setProperty('fieldLabel', True)
+        remote_layout.addWidget(provider_title)
+
+        self.provider_combo = QComboBox()
+        for code, _label in TRANSLATION_PROVIDER_OPTIONS:
+            if code == 'local':
+                continue
+            self.provider_combo.addItem(tr(ui_language, f'translation_provider_{code}'), code)
+        provider_index = self.provider_combo.findData(self._preferred_remote_provider)
+        if provider_index >= 0:
+            self.provider_combo.setCurrentIndex(provider_index)
+        self.provider_combo.currentIndexChanged.connect(self._handle_provider_changed)
+        remote_layout.addWidget(self.provider_combo)
+
+        self.provider_help_label = QLabel()
+        self.provider_help_label.setWordWrap(True)
+        self.provider_help_label.setObjectName('infoLabel')
+        remote_layout.addWidget(self.provider_help_label)
+
+        api_key_title = QLabel(tr(ui_language, 'settings_api_key'))
+        api_key_title.setProperty('fieldLabel', True)
+        remote_layout.addWidget(api_key_title)
+
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setEchoMode(QLineEdit.PasswordEchoOnEdit)
+        self.api_key_edit.textEdited.connect(self._persist_current_provider_inputs)
+        self.api_key_edit.textChanged.connect(self._handle_api_key_text_changed)
+        api_key_row_widget = QWidget()
+        api_key_row = QHBoxLayout(api_key_row_widget)
+        api_key_row.setContentsMargins(0, 0, 0, 0)
+        api_key_row.setSpacing(10)
+        api_key_row.addWidget(self.api_key_edit, 1)
+        self.clear_api_key_button = QPushButton(tr(ui_language, 'clear_api_key'))
+        self.clear_api_key_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.clear_api_key_button.clicked.connect(self._clear_current_provider_api_key)
+        api_key_row.addWidget(self.clear_api_key_button)
+        remote_layout.addWidget(api_key_row_widget)
+
+        self.api_key_url_label = QLabel()
+        self.api_key_url_label.setOpenExternalLinks(True)
+        self.api_key_url_label.setWordWrap(True)
+        self.api_key_url_label.setObjectName('infoLabel')
+        remote_layout.addWidget(self.api_key_url_label)
+
+        self.api_key_status_label = QLabel()
+        self.api_key_status_label.setWordWrap(True)
+        self.api_key_status_label.setObjectName('infoLabel')
+        remote_layout.addWidget(self.api_key_status_label)
+
+        model_title = QLabel(tr(ui_language, 'settings_remote_model'))
+        model_title.setProperty('fieldLabel', True)
+        remote_layout.addWidget(model_title)
+
+        model_row_widget = QWidget()
+        model_row = QHBoxLayout(model_row_widget)
+        model_row.setContentsMargins(0, 0, 0, 0)
+        model_row.setSpacing(10)
+        self.model_combo = QComboBox()
+        self.model_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.model_combo.currentIndexChanged.connect(self._persist_current_provider_inputs)
+        self.model_combo.currentIndexChanged.connect(self._refresh_provider_status_labels)
+        model_row.addWidget(self.model_combo, 1)
+        self.refresh_models_button = QPushButton(tr(ui_language, 'refresh_models'))
+        self.refresh_models_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.refresh_models_button.clicked.connect(self._refresh_remote_models)
+        model_row.addWidget(self.refresh_models_button)
+        remote_layout.addWidget(model_row_widget)
+
+        self.model_help_label = QLabel(tr(ui_language, 'settings_model_help'))
+        self.model_help_label.setWordWrap(True)
+        self.model_help_label.setObjectName('infoLabel')
+        remote_layout.addWidget(self.model_help_label)
+
+        self.model_status_label = QLabel()
+        self.model_status_label.setWordWrap(True)
+        self.model_status_label.setObjectName('infoLabel')
+        remote_layout.addWidget(self.model_status_label)
+        translation_layout.addWidget(self.remote_section)
 
         content_layout.addStretch()
 
@@ -338,6 +367,8 @@ class SettingsDialog(QDialog):
         return self.receive_beta_updates_checkbox.isChecked()
 
     def selected_translation_provider(self) -> str:
+        if str(self.mode_combo.currentData()) == 'local':
+            return 'local'
         return str(self.provider_combo.currentData())
 
     def selected_api_keys(self) -> dict[str, str]:
@@ -350,19 +381,26 @@ class SettingsDialog(QDialog):
 
     def _handle_provider_changed(self) -> None:
         self._persist_provider_inputs(self._displayed_provider)
-        self._displayed_provider = str(self.provider_combo.currentData())
+        self._preferred_remote_provider = str(self.provider_combo.currentData())
+        self._displayed_provider = self._preferred_remote_provider
+        self._update_provider_section()
+
+    def _handle_mode_changed(self) -> None:
+        self._persist_provider_inputs(self._displayed_provider)
+        if str(self.mode_combo.currentData()) == 'local':
+            self._displayed_provider = 'local'
+        else:
+            self._displayed_provider = str(self.provider_combo.currentData())
+            self._preferred_remote_provider = self._displayed_provider
         self._update_provider_section()
 
     def _update_provider_section(self) -> None:
-        provider = str(self.provider_combo.currentData())
+        provider = self.selected_translation_provider()
         provider_is_local = provider == 'local'
+        self.performance_section.setVisible(provider_is_local)
+        self.remote_section.setVisible(not provider_is_local)
         self.performance_combo.setEnabled(provider_is_local)
-        self.provider_help_label.setText(
-            tr(
-                self.ui_language,
-                'settings_provider_help_local' if provider_is_local else 'settings_provider_help_remote',
-            )
-        )
+        self.provider_help_label.setText(tr(self.ui_language, 'settings_provider_help_remote'))
         self.api_key_edit.setEnabled(not provider_is_local)
         self.clear_api_key_button.setEnabled(not provider_is_local)
         self.model_combo.setEnabled(not provider_is_local)
@@ -387,7 +425,7 @@ class SettingsDialog(QDialog):
         self._refresh_provider_status_labels()
 
     def _populate_model_combo(self, models=None) -> None:
-        provider = str(self.provider_combo.currentData())
+        provider = self.selected_translation_provider()
         selected_model = self.provider_models.get(provider, '')
         available_models = models if models is not None else []
 
@@ -454,7 +492,7 @@ class SettingsDialog(QDialog):
         self._refresh_provider_status_labels()
 
     def _refresh_provider_status_labels(self) -> None:
-        provider = str(self.provider_combo.currentData())
+        provider = self.selected_translation_provider()
         provider_is_local = provider == 'local'
         current_api_key = self.api_keys.get(provider, '')
         if provider_is_local:
@@ -652,7 +690,6 @@ class TranslationWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.resize(1040, 820)
 
         self.start_time = 0.0
         self.last_eta_update = 0.0
@@ -686,6 +723,8 @@ class MainWindow(QMainWindow):
         self._apply_styles()
         self._apply_ui_texts()
         self._refresh_settings_summary()
+        self.adjustSize()
+        self.resize(max(self.width(), 980), self.height())
         self._start_update_check()
 
         self.timer = QTimer(self)
@@ -698,44 +737,43 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         root_layout = QVBoxLayout(central)
-        root_layout.setContentsMargins(20, 20, 20, 20)
-        root_layout.setSpacing(16)
+        root_layout.setContentsMargins(12, 12, 12, 12)
+        root_layout.setSpacing(8)
 
         header_card = self._make_card()
         header_layout = QHBoxLayout(header_card)
-        header_layout.setContentsMargins(20, 18, 20, 18)
-        header_layout.setSpacing(16)
+        header_layout.setContentsMargins(14, 12, 14, 12)
+        header_layout.setSpacing(10)
 
         self.title_label = QLabel('')
         self.title_label.setObjectName('titleLabel')
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
 
-        self.settings_button = QToolButton()
-        self.settings_button.setObjectName('headerIconButton')
-        self.settings_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        self.settings_button.setFixedSize(52, 52)
+        self.settings_button = QPushButton('')
+        self.settings_button.setObjectName('headerActionButton')
+        self.settings_button.setFixedHeight(40)
         self.settings_button.clicked.connect(self._open_settings)
         header_layout.addWidget(self.settings_button)
         header_layout.setAlignment(self.settings_button, Qt.AlignmentFlag.AlignVCenter)
 
         self.website_button = QPushButton('')
         self.website_button.setObjectName('headerActionButton')
-        self.website_button.setFixedHeight(52)
+        self.website_button.setFixedHeight(40)
         self.website_button.clicked.connect(self._open_project_website)
         header_layout.addWidget(self.website_button)
         header_layout.setAlignment(self.website_button, Qt.AlignmentFlag.AlignVCenter)
 
         self.about_button = QPushButton('')
         self.about_button.setObjectName('headerActionButton')
-        self.about_button.setFixedHeight(52)
+        self.about_button.setFixedHeight(40)
         self.about_button.clicked.connect(self._open_about_dialog)
         header_layout.addWidget(self.about_button)
         header_layout.setAlignment(self.about_button, Qt.AlignmentFlag.AlignVCenter)
 
         self.status_chip = QLabel('')
         self.status_chip.setObjectName('statusChip')
-        self.status_chip.setFixedHeight(52)
+        self.status_chip.setFixedHeight(40)
         header_layout.addWidget(self.status_chip)
         header_layout.setAlignment(self.status_chip, Qt.AlignmentFlag.AlignVCenter)
         root_layout.addWidget(header_card)
@@ -747,56 +785,38 @@ class MainWindow(QMainWindow):
         self.update_banner.hide()
         root_layout.addWidget(self.update_banner)
 
-        self.active_model_label = QLabel('')
-        self.active_model_label.setObjectName('infoLabel')
-        self.active_model_label.setWordWrap(True)
-        root_layout.addWidget(self.active_model_label)
+        self.context_card = self._make_card()
+        context_layout = QHBoxLayout(self.context_card)
+        context_layout.setContentsMargins(14, 12, 14, 12)
+        context_layout.setSpacing(10)
+
+        context_text_layout = QVBoxLayout()
+        context_text_layout.setContentsMargins(0, 0, 0, 0)
+        context_text_layout.setSpacing(4)
 
         self.settings_summary_label = QLabel('')
         self.settings_summary_label.setObjectName('infoLabel')
         self.settings_summary_label.setWordWrap(True)
-        root_layout.addWidget(self.settings_summary_label)
+        context_text_layout.addWidget(self.settings_summary_label)
 
-        stats_card = self._make_card()
-        stats_layout = QVBoxLayout(stats_card)
-        stats_layout.setContentsMargins(20, 18, 20, 18)
-        stats_layout.setSpacing(10)
+        self.active_model_label = QLabel('')
+        self.active_model_label.setObjectName('infoLabel')
+        self.active_model_label.setWordWrap(True)
+        context_text_layout.addWidget(self.active_model_label)
 
-        self.elapsed_label = QLabel('')
-        self.elapsed_label.setObjectName('infoLabel')
-        stats_layout.addWidget(self.elapsed_label)
+        context_layout.addLayout(context_text_layout, 1)
 
-        self.eta_label = QLabel('')
-        self.eta_label.setObjectName('infoLabel')
-        stats_layout.addWidget(self.eta_label)
-
-        progress_row = QHBoxLayout()
-        progress_row.setSpacing(12)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setObjectName('progressBar')
-        progress_row.addWidget(self.progress_bar, 1)
-
-        self.progress_percent_label = QLabel('0%')
-        self.progress_percent_label.setObjectName('percentLabel')
-        progress_row.addWidget(self.progress_percent_label)
-        stats_layout.addLayout(progress_row)
-
-        root_layout.addWidget(stats_card)
-
-        self.current_message_label = QLabel('')
-        self.current_message_label.setObjectName('messageLabel')
-        self.current_message_label.setWordWrap(True)
-        root_layout.addWidget(self.current_message_label)
+        self.quick_settings_button = QPushButton('')
+        self.quick_settings_button.setObjectName('subtleButton')
+        self.quick_settings_button.clicked.connect(self._open_settings)
+        context_layout.addWidget(self.quick_settings_button, 0, Qt.AlignmentFlag.AlignTop)
+        root_layout.addWidget(self.context_card)
 
         controls_card = self._make_card()
         controls_layout = QGridLayout(controls_card)
-        controls_layout.setContentsMargins(20, 18, 20, 18)
-        controls_layout.setHorizontalSpacing(10)
-        controls_layout.setVerticalSpacing(12)
+        controls_layout.setContentsMargins(16, 14, 16, 14)
+        controls_layout.setHorizontalSpacing(8)
+        controls_layout.setVerticalSpacing(8)
 
         self.file_label = self._make_field_label('')
         controls_layout.addWidget(self.file_label, 0, 0)
@@ -852,10 +872,46 @@ class MainWindow(QMainWindow):
         controls_layout.setColumnStretch(2, 1)
         root_layout.addWidget(controls_card)
 
-        log_card = self._make_card()
-        log_layout = QVBoxLayout(log_card)
-        log_layout.setContentsMargins(20, 18, 20, 18)
-        log_layout.setSpacing(8)
+        self.progress_card = self._make_card()
+        stats_layout = QVBoxLayout(self.progress_card)
+        stats_layout.setContentsMargins(16, 14, 16, 14)
+        stats_layout.setSpacing(8)
+
+        self.current_message_label = QLabel('')
+        self.current_message_label.setObjectName('messageLabel')
+        self.current_message_label.setWordWrap(True)
+        stats_layout.addWidget(self.current_message_label)
+
+        self.elapsed_label = QLabel('')
+        self.elapsed_label.setObjectName('infoLabel')
+        stats_layout.addWidget(self.elapsed_label)
+
+        self.eta_label = QLabel('')
+        self.eta_label.setObjectName('infoLabel')
+        stats_layout.addWidget(self.eta_label)
+
+        progress_row = QHBoxLayout()
+        progress_row.setSpacing(8)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setObjectName('progressBar')
+        progress_row.addWidget(self.progress_bar, 1)
+
+        self.progress_percent_label = QLabel('0%')
+        self.progress_percent_label.setObjectName('percentLabel')
+        progress_row.addWidget(self.progress_percent_label)
+        stats_layout.addLayout(progress_row)
+
+        self.progress_card.hide()
+        root_layout.addWidget(self.progress_card)
+
+        self.log_card = self._make_card()
+        log_layout = QVBoxLayout(self.log_card)
+        log_layout.setContentsMargins(16, 14, 16, 14)
+        log_layout.setSpacing(6)
 
         self.log_title = self._make_field_label('')
         log_layout.addWidget(self.log_title)
@@ -869,9 +925,12 @@ class MainWindow(QMainWindow):
         if mono_font.family() == '':
             mono_font = QFont('Courier New', 10)
         self.log_view.setFont(mono_font)
+        self.log_view.setMinimumHeight(130)
         log_layout.addWidget(self.log_view, 1)
 
-        root_layout.addWidget(log_card, 1)
+        self.log_card.hide()
+        root_layout.addWidget(self.log_card)
+        root_layout.addStretch()
 
     def _apply_styles(self) -> None:
         self.setStyleSheet(
@@ -885,13 +944,13 @@ class MainWindow(QMainWindow):
             QFrame[card="true"] {
                 background: #fffdf9;
                 border: 1px solid #e8e1d6;
-                border-radius: 16px;
+                border-radius: 14px;
             }
             QLabel {
                 background: transparent;
             }
             QLabel#titleLabel {
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: 700;
                 color: #16212b;
             }
@@ -911,20 +970,20 @@ class MainWindow(QMainWindow):
             QLabel#infoLabel {
                 color: #5f6b76;
                 font-family: "IBM Plex Mono", "Courier New", monospace;
-                font-size: 13px;
+                font-size: 12px;
                 padding: 0;
             }
             QLabel#percentLabel {
                 color: #1d6c54;
                 font-family: "IBM Plex Mono", "Courier New", monospace;
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: 700;
                 min-width: 42px;
             }
             QLabel#messageLabel {
                 color: #16212b;
-                font-size: 15px;
-                padding-left: 4px;
+                font-size: 14px;
+                padding-left: 0;
             }
             QLabel[fieldLabel="true"] {
                 font-size: 12px;
@@ -935,7 +994,7 @@ class MainWindow(QMainWindow):
                 background: #ffffff;
                 border: 1px solid #ddd4c8;
                 border-radius: 10px;
-                padding: 10px 12px;
+                padding: 8px 10px;
                 min-height: 18px;
             }
             QLineEdit:focus, QComboBox:focus {
@@ -944,44 +1003,37 @@ class MainWindow(QMainWindow):
             QPushButton {
                 background: #ffffff;
                 border: 1px solid #ddd4c8;
-                border-radius: 12px;
-                padding: 10px 14px;
+                border-radius: 10px;
+                padding: 8px 12px;
                 font-weight: 600;
             }
-            QToolButton#headerIconButton {
-                background: #ffffff;
-                border: 1px solid #d9d0c4;
-                border-radius: 14px;
-                padding: 0;
-                min-width: 52px;
-                max-width: 52px;
-                min-height: 52px;
-                max-height: 52px;
-            }
             QPushButton#headerActionButton {
-                background: #ffffff;
-                border: 1px solid #d9d0c4;
-                border-radius: 14px;
-                padding: 0 16px;
-                min-height: 52px;
-                max-height: 52px;
+                background: #fcfaf6;
+                border: 1px solid #ddd4c8;
+                border-radius: 12px;
+                padding: 0 12px;
+                min-height: 40px;
+                max-height: 40px;
                 color: #30404c;
                 font-weight: 600;
             }
             QPushButton:hover {
                 border: 1px solid #1f9d84;
             }
-            QToolButton#headerIconButton:hover {
-                border: 1px solid #1f9d84;
-            }
             QPushButton#headerActionButton:hover {
                 border: 1px solid #1f9d84;
+                background: #f5fbf8;
                 color: #1d6c54;
             }
             QPushButton#primaryButton {
                 background: #1f9d84;
                 color: #ffffff;
                 border: 1px solid #1f9d84;
+            }
+            QPushButton#subtleButton {
+                padding: 6px 10px;
+                min-height: 16px;
+                color: #30404c;
             }
             QPushButton#primaryButton:hover {
                 background: #17816c;
@@ -993,13 +1045,13 @@ class MainWindow(QMainWindow):
                 border: 1px solid #e0d8cd;
             }
             QLabel#statusChip {
-                background: #dff0e9;
+                background: #dff2ea;
                 color: #1d6c54;
-                border: 1px solid #c6e5d9;
-                border-radius: 14px;
+                border: 1px solid #c8e4d8;
+                border-radius: 12px;
                 padding: 0 16px;
-                min-height: 52px;
-                max-height: 52px;
+                min-height: 40px;
+                max-height: 40px;
                 qproperty-alignment: AlignCenter;
                 font-weight: 700;
             }
@@ -1018,7 +1070,7 @@ class MainWindow(QMainWindow):
                 color: #d8f5e8;
                 border: none;
                 border-radius: 12px;
-                padding: 10px;
+                padding: 8px;
             }
             '''
         )
@@ -1168,6 +1220,8 @@ class MainWindow(QMainWindow):
         self.transient_message = ''
         self.cancel_requested = False
         self.log_view.setPlainText('')
+        self.progress_card.show()
+        self.log_card.show()
         self._set_status('working')
         self.current_message_label.setText(tr(self.ui_language, 'preparing_translation'))
         self.active_model_label.setText(tr(self.ui_language, 'active_model', model_label='-'))
@@ -1223,6 +1277,7 @@ class MainWindow(QMainWindow):
         lines = list(self.log_entries)
         if self.transient_message:
             lines.append(self.transient_message)
+        self.log_card.setVisible(bool(lines))
         self.log_view.setPlainText('\n'.join(lines))
         scrollbar = self.log_view.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
@@ -1560,22 +1615,21 @@ class MainWindow(QMainWindow):
         return tr(self.ui_language, 'custom_language_option_label', code=code)
 
     def _refresh_settings_summary(self) -> None:
-        model_summary = '-'
-        if self.translation_provider != 'local':
-            model_summary = self.provider_models.get(self.translation_provider, '-') or '-'
-        self.settings_summary_label.setText(
-            tr(
+        if self.translation_provider == 'local':
+            summary = tr(
                 self.ui_language,
-                'settings_summary',
+                'settings_summary_local',
                 provider=tr(self.ui_language, f'translation_provider_{self.translation_provider}'),
-                model=model_summary,
                 performance=performance_label(self.ui_language, self.performance_mode),
-                updates=tr(
-                    self.ui_language,
-                    'beta_updates_enabled' if self.receive_beta_updates else 'beta_updates_disabled',
-                ),
-            ),
-        )
+            )
+        else:
+            summary = tr(
+                self.ui_language,
+                'settings_summary_remote',
+                provider=tr(self.ui_language, f'translation_provider_{self.translation_provider}'),
+                model=self.provider_models.get(self.translation_provider, '-') or '-',
+            )
+        self.settings_summary_label.setText(summary)
 
     def _cancel_translation(self) -> None:
         if not self.running or self.worker is None:
@@ -1592,11 +1646,15 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(tr(self.ui_language, 'app_title'))
         self.title_label.setText(tr(self.ui_language, 'app_title'))
         self.settings_button.setIcon(self._header_icon('preferences-system', QStyle.SP_FileDialogDetailedView))
+        self.settings_button.setText(tr(self.ui_language, 'settings'))
         self.settings_button.setToolTip(tr(self.ui_language, 'settings'))
         self.website_button.setIcon(self._header_icon('applications-internet', QStyle.SP_ArrowUp))
         self.website_button.setText(tr(self.ui_language, 'website'))
         self.website_button.setToolTip(tr(self.ui_language, 'website_tooltip'))
+        self.about_button.setIcon(self._header_icon('help-about', QStyle.SP_MessageBoxInformation))
         self.about_button.setText(tr(self.ui_language, 'about'))
+        self.quick_settings_button.setText(tr(self.ui_language, 'change_translation_settings'))
+        self.quick_settings_button.setToolTip(tr(self.ui_language, 'settings'))
         self.file_label.setText(tr(self.ui_language, 'file_label'))
         self.file_edit.setPlaceholderText(tr(self.ui_language, 'file_placeholder'))
         self.open_button.setText(tr(self.ui_language, 'open_button'))
