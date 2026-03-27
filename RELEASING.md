@@ -22,12 +22,20 @@ Si el tag se crea antes de que termine el commit de version, la release puede ap
 3. Hacer commit del cambio de version.
 4. Crear el tag solo despues de que el commit exista ya:
    - `git tag -a vX.Y.Z -m "vX.Y.Z"`
+   - comprobar que el tag apunta al commit correcto, no solo al objeto anotado:
+     - `git rev-parse HEAD`
+     - `git rev-parse vX.Y.Z^{}`
+     - ambos hashes deben coincidir antes de hacer `push`
 5. Subir primero la rama:
    - `git push origin main`
 6. Subir despues el tag:
    - `git push origin vX.Y.Z`
 7. Crear la release en GitHub solo cuando el tag ya exista en remoto:
    - `gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes`
+   - justo despues, comprobar que el workflow nuevo ha arrancado sobre el commit esperado:
+     - `gh run list --workflow "Build Desktop" --limit 5`
+     - `gh run view <run_id> --json headSha,status`
+     - `headSha` debe coincidir con `git rev-parse HEAD`
 8. Vigilar el workflow `Build Desktop` hasta que aparezcan los 4 artefactos:
    - `.deb`
    - `AppImage`
@@ -47,8 +55,20 @@ La correccion correcta es:
 2. Borrar la release equivocada.
 3. Borrar el tag local y remoto.
 4. Recrear el tag apuntando explicitamente al commit correcto.
+   - usar el hash del commit, por ejemplo:
+     - `git tag -a vX.Y.Z <commit_sha> -m "vX.Y.Z"`
 5. Volver a subir el tag.
 6. Volver a crear la release.
+
+## Comprobacion critica de tags
+
+Un tag anotado tiene dos hashes distintos:
+
+- `git rev-parse vX.Y.Z` devuelve el hash del objeto tag
+- `git rev-parse vX.Y.Z^{}` devuelve el hash del commit real al que apunta
+
+Para publicar releases en este repo, la comprobacion buena es siempre `vX.Y.Z^{}`.
+Si se mira solo `git rev-parse vX.Y.Z`, se puede creer por error que el tag es correcto cuando en realidad apunta al commit anterior.
 
 ## Versionado y Debian
 
