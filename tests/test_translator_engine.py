@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from elpx_translator_desktop.config import EUSKERA_MODEL_CONFIGS, MODEL_CONFIG
+from elpx_translator_desktop.remote_provider import RemoteProviderError
 from elpx_translator_desktop.translator_engine import TranslationEngine
 
 
@@ -81,6 +82,36 @@ class TranslatorEngineTests(unittest.TestCase):
         )
 
         self.assertEqual(translated, ['No era eso! Error!'])
+
+    @patch('elpx_translator_desktop.translator_engine.create_translation_completion')
+    def test_remote_batch_splits_when_provider_returns_invalid_structure(self, completion_mock) -> None:
+        engine = TranslationEngine(
+            translation_provider='deepseek',
+            remote_model_id='deepseek-chat',
+            remote_api_key='test-key',
+        )
+
+        completion_mock.side_effect = [
+            RemoteProviderError('La respuesta del proveedor remoto no devolvió una lista de traducciones válida.'),
+            ['hola'],
+            ['adiós'],
+        ]
+
+        batch = [
+            {'text': 'hello', 'result_index': 0, 'chunk_count': 1, 'unit_offset': 0, 'unit_index': 1},
+            {'text': 'goodbye', 'result_index': 1, 'chunk_count': 1, 'unit_offset': 1, 'unit_index': 2},
+        ]
+
+        translated = engine._translate_remote_batch_with_retries(
+            batch,
+            source_language='en',
+            target_language='es',
+            progress_callback=lambda _: None,
+            progress_label='test',
+        )
+
+        self.assertEqual(translated, ['hola', 'adiós'])
+        self.assertEqual(completion_mock.call_count, 3)
 
 
 class FakeTokenizer:

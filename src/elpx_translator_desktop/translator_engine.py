@@ -12,7 +12,7 @@ from transformers import AutoTokenizer
 
 from .config import DEFAULT_PERFORMANCE_MODE, EUSKERA_MODEL_CONFIGS, MODEL_CONFIG, ModelConfig
 from .progress import ProgressEvent, TranslationCancelledError
-from .remote_provider import RemoteProviderError, create_translation_completion
+from .remote_provider import RemoteProviderError, create_translation_completion, is_structured_response_error
 from .text_utils import sanitize_translated_text, split_long_text
 from .ui_i18n import tr
 
@@ -377,6 +377,27 @@ class TranslationEngine:
                     texts=[job['text'] for job in batch],
                 )
             except RemoteProviderError as error:
+                if len(batch) > 1 and is_structured_response_error(error):
+                    midpoint = max(len(batch) // 2, 1)
+                    first_half = self._translate_remote_batch_with_retries(
+                        batch[:midpoint],
+                        source_language=source_language,
+                        target_language=target_language,
+                        progress_callback=progress_callback,
+                        progress_label=progress_label,
+                        progress_meta=progress_meta,
+                        should_cancel=should_cancel,
+                    )
+                    second_half = self._translate_remote_batch_with_retries(
+                        batch[midpoint:],
+                        source_language=source_language,
+                        target_language=target_language,
+                        progress_callback=progress_callback,
+                        progress_label=progress_label,
+                        progress_meta=progress_meta,
+                        should_cancel=should_cancel,
+                    )
+                    return first_half + second_half
                 if error.status_code != 429 or attempt >= max_attempts:
                     raise
                 retry_delay = max(error.retry_after_seconds or 2.0, 1.0)

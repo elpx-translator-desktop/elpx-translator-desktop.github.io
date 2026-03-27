@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import ast
 import json
+import re
 from dataclasses import dataclass
 from urllib import error, request
 
@@ -38,6 +38,14 @@ DEFAULT_REMOTE_MODEL_IDS = {
         'deepseek-reasoner',
     ],
 }
+
+STRUCTURED_RESPONSE_ERROR_MARKERS = (
+    'La respuesta del proveedor remoto no devolvió una lista de traducciones válida.',
+    'La respuesta remota no coincide con el tamaño del lote enviado.',
+    'La respuesta del proveedor remoto no contiene JSON válido.',
+    'La respuesta del proveedor remoto no contiene un JSON utilizable.',
+    'La respuesta del proveedor remoto no contiene el objeto JSON esperado.',
+)
 
 
 class RemoteProviderError(RuntimeError):
@@ -125,11 +133,22 @@ def create_translation_completion(
     )
     data = _extract_json(content)
     translations = data.get('translations')
+    if isinstance(translations, str):
+        try:
+            translations = json.loads(translations)
+        except json.JSONDecodeError:
+            translations = None
     if not isinstance(translations, list) or len(translations) != len(texts):
-        raise RemoteProviderError('La respuesta del proveedor remoto no devolvió una lista de traducciones válida.')
+        raise RemoteProviderError(
+            'La respuesta del proveedor remoto no devolvió una lista de traducciones válida.',
+            raw_details=_truncate_provider_content(content),
+        )
     normalized = [item if isinstance(item, str) else str(item) for item in translations]
     if len(normalized) != len(texts):
-        raise RemoteProviderError('La respuesta remota no coincide con el tamaño del lote enviado.')
+        raise RemoteProviderError(
+            'La respuesta remota no coincide con el tamaño del lote enviado.',
+            raw_details=_truncate_provider_content(content),
+        )
     return normalized
 
 
@@ -379,21 +398,79 @@ def _anthropic_message_completion(
 
 
 def _extract_json(content: str) -> dict:
+    parsed = _try_parse_json_object(content)
+    if isinstance(parsed, dict):
+        return parsed
+
+    fenced_matches = re.findall(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', content, flags=re.IGNORECASE)
+    for candidate in fenced_matches:
+        parsed = _try_parse_json_object(candidate)
+        if isinstance(parsed, dict):
+            return parsed
+
+    for candidate in _iter_json_object_candidates(content):
+        parsed = _try_parse_json_object(candidate)
+        if isinstance(parsed, dict):
+            return parsed
+
+    if '{' not in content or '}' not in content:
+        raise RemoteProviderError(
+            'La respuesta del proveedor remoto no contiene JSON válido.',
+            raw_details=_truncate_provider_content(content),
+        ) from None
+    raise RemoteProviderError(
+        'La respuesta del proveedor remoto no contiene un JSON utilizable.',
+        raw_details=_truncate_provider_content(content),
+    )
+
+
+def is_structured_response_error(error: RemoteProviderError) -> bool:
+    return any(str(error).startswith(marker) for marker in STRUCTURED_RESPONSE_ERROR_MARKERS)
+
+
+def _try_parse_json_object(content: str):
     try:
         parsed = json.loads(content)
     except json.JSONDecodeError:
-        start = content.find('{')
-        end = content.rfind('}')
-        if start < 0 or end <= start:
-            raise RemoteProviderError('La respuesta del proveedor remoto no contiene JSON válido.') from None
-        try:
-            parsed = json.loads(content[start : end + 1])
-        except json.JSONDecodeError as error_info:
-            raise RemoteProviderError('La respuesta del proveedor remoto no contiene un JSON utilizable.') from error_info
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
-    if not isinstance(parsed, dict):
-        raise RemoteProviderError('La respuesta del proveedor remoto no contiene el objeto JSON esperado.')
-    return parsed
+
+def _iter_json_object_candidates(content: str):
+    depth = 0
+    start = None
+    in_string = False
+    escape = False
+    for index, char in enumerate(content):
+        if escape:
+            escape = False
+            continue
+        if char == '\\' and in_string:
+            escape = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == '{':
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char == '}':
+            if depth == 0:
+                continue
+            depth -= 1
+            if depth == 0 and start is not None:
+                yield content[start : index + 1]
+                start = None
+
+
+def _truncate_provider_content(content: str, limit: int = 1200) -> str:
+    normalized = ' '.join(content.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3] + '...'
 
 
 def _http_json(
