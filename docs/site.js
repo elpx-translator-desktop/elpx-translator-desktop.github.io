@@ -1,5 +1,7 @@
 const REPO = 'elpx-translator-desktop/elpx-translator-desktop.github.io';
 const API_URL = `https://api.github.com/repos/${REPO}/releases`;
+const TAGS_API_URL = `https://api.github.com/repos/${REPO}/tags?per_page=30`;
+const RELEASE_BY_TAG_API_URL = (tag) => `https://api.github.com/repos/${REPO}/releases/tags/${encodeURIComponent(tag)}`;
 const STORAGE_KEY = 'elpx-translator-site-language';
 const SUPPORTED_LANGUAGES = ['es', 'en', 'ca', 'eu', 'gl'];
 
@@ -736,13 +738,68 @@ function renderReleases(language) {
   renderRelease('beta-release', beta, translate(language, 'release_no_beta'), language);
 }
 
+async function fetchJson(url) {
+  const response = await fetch(url, {
+    headers: { Accept: 'application/vnd.github+json' },
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub API error: ${response.status}`);
+  }
+  return response.json();
+}
+
+function bestVersionTag(tags, { prerelease }) {
+  let bestTag = null;
+  for (const tag of tags) {
+    const parsed = parseVersion(tag);
+    if (!parsed) continue;
+    const isPrerelease = parsed.beta !== null;
+    if (isPrerelease !== prerelease) continue;
+    if (!bestTag || compareVersions(tag, bestTag) > 0) {
+      bestTag = tag;
+    }
+  }
+  return bestTag;
+}
+
+async function buildReleaseCache() {
+  const releases = await fetchJson(API_URL);
+  const validReleases = Array.isArray(releases) ? releases.filter((release) => release && !release.draft) : [];
+  const releaseByTag = new Map(
+    validReleases
+      .map((release) => [String(release.tag_name || '').trim(), release])
+      .filter(([tag]) => Boolean(tag)),
+  );
+
+  const tagsPayload = await fetchJson(TAGS_API_URL);
+  const tags = Array.isArray(tagsPayload) ? tagsPayload.map((item) => String(item?.name || '').trim()).filter(Boolean) : [];
+
+  const candidateTags = new Set([
+    ...releaseByTag.keys(),
+    ...tags,
+  ]);
+
+  const latestStableTag = bestVersionTag(candidateTags, { prerelease: false });
+  const latestBetaTag = bestVersionTag(candidateTags, { prerelease: true });
+
+  for (const tag of [latestStableTag, latestBetaTag]) {
+    if (!tag || releaseByTag.has(tag)) continue;
+    try {
+      const release = await fetchJson(RELEASE_BY_TAG_API_URL(tag));
+      if (release && !release.draft) {
+        releaseByTag.set(tag, release);
+      }
+    } catch (error) {
+      console.warn('Could not load release by tag', tag, error);
+    }
+  }
+
+  return Array.from(releaseByTag.values()).sort((left, right) => compareVersions(String(right.tag_name || ''), String(left.tag_name || '')));
+}
+
 async function loadReleases() {
   try {
-    const response = await fetch(API_URL, {
-      headers: { Accept: 'application/vnd.github+json' },
-    });
-    if (!response.ok) throw new Error('GitHub API error');
-    releasesCache = await response.json();
+    releasesCache = await buildReleaseCache();
     renderReleases(currentLanguage);
   } catch (error) {
     renderRelease('stable-release', null, translate(currentLanguage, 'release_unavailable'), currentLanguage);
