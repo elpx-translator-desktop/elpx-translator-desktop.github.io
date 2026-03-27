@@ -44,8 +44,8 @@ Priority: optional
 Architecture: ${ARCH}
 Maintainer: Juan José de Haro
 Depends: libegl1, libxkbcommon-x11-0, libdbus-1-3
-Description: Desktop app to translate .elpx projects locally
- Translate .elpx projects locally on Linux, Windows, and macOS.
+Description: Desktop app to translate .elpx projects locally or with your own API
+ Translate .elpx projects locally by default, or with your own API, on Linux, Windows, and macOS.
 EOF
 
 (

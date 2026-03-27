@@ -4,6 +4,7 @@ import html
 import importlib.resources as resources
 import sys
 import time
+import traceback
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, QUrl, Signal, Slot
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStyle,
     QTextBrowser,
@@ -32,6 +34,20 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+APP_LOG_PATH = Path(__file__).resolve().parents[2] / 'elpx-translator-desktop-runtime.log'
+CUSTOM_TARGET_LANGUAGE_VALUE = '__custom_target__'
+
+
+def _append_runtime_log(message: str) -> None:
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        APP_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with APP_LOG_PATH.open('a', encoding='utf-8') as handle:
+            handle.write(f'[{timestamp}] {message}\n')
+    except Exception:
+        pass
+
 
 if __package__ in {None, ''}:
     package_root = Path(__file__).resolve().parent.parent
@@ -53,11 +69,17 @@ if __package__ in {None, ''}:
         DEFAULT_TARGET_LANGUAGE,
         LANGUAGE_OPTIONS,
         SUPPORTED_LANGUAGE_CODES,
+        TRANSLATION_PROVIDER_OPTIONS,
         supported_source_languages,
         supported_target_languages,
     )
     from elpx_translator_desktop.elpx_service import ElpxTranslationService, TranslationOptions  # type: ignore[no-redef]
     from elpx_translator_desktop.progress import ProgressEvent, TranslationCancelledError  # type: ignore[no-redef]
+    from elpx_translator_desktop.remote_provider import (  # type: ignore[no-redef]
+        RemoteProviderError,
+        get_api_key_url,
+        list_available_models,
+    )
     from elpx_translator_desktop.translator_engine import TranslationEngine  # type: ignore[no-redef]
     from elpx_translator_desktop.update_checker import UpdateCheckWorker  # type: ignore[no-redef]
     from elpx_translator_desktop.ui_i18n import (  # type: ignore[no-redef]
@@ -82,11 +104,13 @@ else:
         DEFAULT_TARGET_LANGUAGE,
         LANGUAGE_OPTIONS,
         SUPPORTED_LANGUAGE_CODES,
+        TRANSLATION_PROVIDER_OPTIONS,
         supported_source_languages,
         supported_target_languages,
     )
     from .elpx_service import ElpxTranslationService, TranslationOptions
     from .progress import ProgressEvent, TranslationCancelledError
+    from .remote_provider import RemoteProviderError, get_api_key_url, list_available_models
     from .translator_engine import TranslationEngine
     from .update_checker import UpdateCheckWorker
     from .ui_i18n import UI_LANGUAGE_OPTIONS, detect_ui_language, performance_label, tr
@@ -98,34 +122,64 @@ class SettingsDialog(QDialog):
         performance_mode: str,
         ui_language: str,
         receive_beta_updates: bool,
+        translation_provider: str,
+        api_keys: dict[str, str],
+        selected_models: dict[str, str],
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.ui_language = ui_language
+        self.api_keys = dict(api_keys)
+        self.provider_models = dict(selected_models)
+        self._displayed_provider = translation_provider
+        self._initializing = True
         self.setWindowTitle(tr(ui_language, 'settings_title'))
         self.setModal(True)
-        self.resize(460, 340)
-        self.setMinimumSize(440, 320)
+        self.resize(680, 640)
+        self.setMinimumSize(620, 560)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
 
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        layout.addWidget(scroll_area, 1)
+
+        content = QWidget()
+        scroll_area.setWidget(content)
+
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(16)
+
+        interface_card, interface_layout = self._make_settings_section(
+            tr(ui_language, 'settings_interface_section'),
+        )
+        content_layout.addWidget(interface_card)
+
         language_title = QLabel(tr(ui_language, 'settings_interface_language'))
         language_title.setProperty('fieldLabel', True)
-        layout.addWidget(language_title)
-
+        interface_layout.addWidget(language_title)
         self.ui_language_combo = QComboBox()
         for code, label in UI_LANGUAGE_OPTIONS:
             self.ui_language_combo.addItem(label, code)
         combo_index = self.ui_language_combo.findData(ui_language)
         if combo_index >= 0:
             self.ui_language_combo.setCurrentIndex(combo_index)
-        layout.addWidget(self.ui_language_combo)
+        interface_layout.addWidget(self.ui_language_combo)
+
+        translation_card, translation_layout = self._make_settings_section(
+            tr(ui_language, 'settings_translation_section'),
+            tr(ui_language, 'settings_translation_section_help'),
+        )
+        content_layout.addWidget(translation_card)
 
         title = QLabel(tr(ui_language, 'settings_performance'))
         title.setProperty('fieldLabel', True)
-        layout.addWidget(title)
+        translation_layout.addWidget(title)
 
         self.performance_combo = QComboBox()
         for code, _ in (
@@ -138,29 +192,107 @@ class SettingsDialog(QDialog):
         combo_index = self.performance_combo.findData(performance_mode)
         if combo_index >= 0:
             self.performance_combo.setCurrentIndex(combo_index)
-        layout.addWidget(self.performance_combo)
+        translation_layout.addWidget(self.performance_combo)
+
+        provider_title = QLabel(tr(ui_language, 'settings_translation_provider'))
+        provider_title.setProperty('fieldLabel', True)
+        translation_layout.addWidget(provider_title)
+
+        self.provider_combo = QComboBox()
+        for code, _label in TRANSLATION_PROVIDER_OPTIONS:
+            self.provider_combo.addItem(tr(ui_language, f'translation_provider_{code}'), code)
+        provider_index = self.provider_combo.findData(translation_provider)
+        if provider_index >= 0:
+            self.provider_combo.setCurrentIndex(provider_index)
+        self.provider_combo.currentIndexChanged.connect(self._handle_provider_changed)
+        translation_layout.addWidget(self.provider_combo)
+
+        self.provider_help_label = QLabel()
+        self.provider_help_label.setWordWrap(True)
+        self.provider_help_label.setObjectName('infoLabel')
+        translation_layout.addWidget(self.provider_help_label)
+
+        api_key_title = QLabel(tr(ui_language, 'settings_api_key'))
+        api_key_title.setProperty('fieldLabel', True)
+        translation_layout.addWidget(api_key_title)
+
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setEchoMode(QLineEdit.PasswordEchoOnEdit)
+        self.api_key_edit.textEdited.connect(self._persist_current_provider_inputs)
+        self.api_key_edit.textChanged.connect(self._handle_api_key_text_changed)
+        api_key_row = QHBoxLayout()
+        api_key_row.setSpacing(10)
+        api_key_row.addWidget(self.api_key_edit, 1)
+        self.clear_api_key_button = QPushButton(tr(ui_language, 'clear_api_key'))
+        self.clear_api_key_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.clear_api_key_button.clicked.connect(self._clear_current_provider_api_key)
+        api_key_row.addWidget(self.clear_api_key_button)
+        translation_layout.addLayout(api_key_row)
+
+        self.api_key_url_label = QLabel()
+        self.api_key_url_label.setOpenExternalLinks(True)
+        self.api_key_url_label.setWordWrap(True)
+        self.api_key_url_label.setObjectName('infoLabel')
+        translation_layout.addWidget(self.api_key_url_label)
+
+        self.api_key_status_label = QLabel()
+        self.api_key_status_label.setWordWrap(True)
+        self.api_key_status_label.setObjectName('infoLabel')
+        translation_layout.addWidget(self.api_key_status_label)
+
+        model_title = QLabel(tr(ui_language, 'settings_remote_model'))
+        model_title.setProperty('fieldLabel', True)
+        translation_layout.addWidget(model_title)
+
+        model_row = QHBoxLayout()
+        model_row.setSpacing(10)
+        self.model_combo = QComboBox()
+        self.model_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.model_combo.currentIndexChanged.connect(self._persist_current_provider_inputs)
+        self.model_combo.currentIndexChanged.connect(self._refresh_provider_status_labels)
+        model_row.addWidget(self.model_combo, 1)
+        self.refresh_models_button = QPushButton(tr(ui_language, 'refresh_models'))
+        self.refresh_models_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.refresh_models_button.clicked.connect(self._refresh_remote_models)
+        model_row.addWidget(self.refresh_models_button)
+        translation_layout.addLayout(model_row)
+
+        self.model_help_label = QLabel(tr(ui_language, 'settings_model_help'))
+        self.model_help_label.setWordWrap(True)
+        self.model_help_label.setObjectName('infoLabel')
+        translation_layout.addWidget(self.model_help_label)
+
+        self.model_status_label = QLabel()
+        self.model_status_label.setWordWrap(True)
+        self.model_status_label.setObjectName('infoLabel')
+        translation_layout.addWidget(self.model_status_label)
+
+        updates_card, updates_layout = self._make_settings_section(
+            tr(ui_language, 'settings_updates_section'),
+        )
+        content_layout.addWidget(updates_card)
 
         updates_title = QLabel(tr(ui_language, 'settings_updates'))
         updates_title.setProperty('fieldLabel', True)
-        layout.addWidget(updates_title)
+        updates_layout.addWidget(updates_title)
 
         self.receive_beta_updates_checkbox = QCheckBox(tr(ui_language, 'settings_receive_beta_updates'))
         self.receive_beta_updates_checkbox.setChecked(receive_beta_updates)
-        layout.addWidget(self.receive_beta_updates_checkbox)
+        updates_layout.addWidget(self.receive_beta_updates_checkbox)
 
         updates_help_label = QLabel(tr(ui_language, 'settings_receive_beta_updates_help'))
         updates_help_label.setWordWrap(True)
         updates_help_label.setObjectName('infoLabel')
         updates_help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        layout.addWidget(updates_help_label)
+        updates_layout.addWidget(updates_help_label)
 
         help_label = QLabel(tr(ui_language, 'settings_help'))
         help_label.setWordWrap(True)
         help_label.setObjectName('infoLabel')
         help_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        layout.addWidget(help_label)
+        updates_layout.addWidget(help_label)
 
-        layout.addStretch()
+        content_layout.addStretch()
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -171,7 +303,30 @@ class SettingsDialog(QDialog):
             ok_button.setText(tr(ui_language, 'ok_button'))
         if cancel_button is not None:
             cancel_button.setText(tr(ui_language, 'cancel_button'))
+        buttons.setCenterButtons(False)
         layout.addWidget(buttons)
+
+        self._update_provider_section()
+        self._initializing = False
+
+    def _make_settings_section(self, title: str, description: str | None = None) -> tuple[QFrame, QVBoxLayout]:
+        card = QFrame()
+        card.setProperty('card', True)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(10)
+
+        title_label = QLabel(title)
+        title_label.setObjectName('sectionTitle')
+        layout.addWidget(title_label)
+
+        if description:
+            description_label = QLabel(description)
+            description_label.setObjectName('infoLabel')
+            description_label.setWordWrap(True)
+            layout.addWidget(description_label)
+
+        return card, layout
 
     def selected_performance_mode(self) -> str:
         return str(self.performance_combo.currentData())
@@ -181,6 +336,141 @@ class SettingsDialog(QDialog):
 
     def selected_receive_beta_updates(self) -> bool:
         return self.receive_beta_updates_checkbox.isChecked()
+
+    def selected_translation_provider(self) -> str:
+        return str(self.provider_combo.currentData())
+
+    def selected_api_keys(self) -> dict[str, str]:
+        self._persist_provider_inputs(self._displayed_provider)
+        return dict(self.api_keys)
+
+    def selected_models(self) -> dict[str, str]:
+        self._persist_provider_inputs(self._displayed_provider)
+        return dict(self.provider_models)
+
+    def _handle_provider_changed(self) -> None:
+        self._persist_provider_inputs(self._displayed_provider)
+        self._displayed_provider = str(self.provider_combo.currentData())
+        self._update_provider_section()
+
+    def _update_provider_section(self) -> None:
+        provider = str(self.provider_combo.currentData())
+        provider_is_local = provider == 'local'
+        self.performance_combo.setEnabled(provider_is_local)
+        self.provider_help_label.setText(
+            tr(
+                self.ui_language,
+                'settings_provider_help_local' if provider_is_local else 'settings_provider_help_remote',
+            )
+        )
+        self.api_key_edit.setEnabled(not provider_is_local)
+        self.clear_api_key_button.setEnabled(not provider_is_local)
+        self.model_combo.setEnabled(not provider_is_local)
+        self.refresh_models_button.setEnabled(not provider_is_local)
+        current_api_key = self.api_keys.get(provider, '')
+        self.api_key_edit.setPlaceholderText(
+            '' if provider_is_local or current_api_key else tr(self.ui_language, 'settings_api_key_placeholder')
+        )
+        self.api_key_edit.setText(current_api_key)
+        self._populate_model_combo()
+        key_url = get_api_key_url(provider)
+        if key_url:
+            self.api_key_url_label.setText(
+                tr(
+                    self.ui_language,
+                    'settings_api_key_url',
+                    url=key_url,
+                )
+            )
+        else:
+            self.api_key_url_label.setText(tr(self.ui_language, 'settings_local_provider_note'))
+        self._refresh_provider_status_labels()
+
+    def _populate_model_combo(self, models=None) -> None:
+        provider = str(self.provider_combo.currentData())
+        selected_model = self.provider_models.get(provider, '')
+        available_models = models if models is not None else []
+
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+        if provider == 'local':
+            self.model_combo.addItem(tr(self.ui_language, 'settings_model_not_required'), '')
+        elif available_models:
+            for item in available_models:
+                self.model_combo.addItem(item.label, item.model_id)
+        elif selected_model:
+            self.model_combo.addItem(selected_model, selected_model)
+        else:
+            self.model_combo.addItem(tr(self.ui_language, 'settings_model_fetch_required'), '')
+
+        combo_index = self.model_combo.findData(selected_model)
+        if combo_index < 0 and self.model_combo.count():
+            combo_index = 0
+        if combo_index >= 0:
+            self.model_combo.setCurrentIndex(combo_index)
+        self.model_combo.blockSignals(False)
+        self._persist_provider_inputs(provider)
+
+    def _refresh_remote_models(self) -> None:
+        provider = self.selected_translation_provider()
+        if provider == 'local':
+            return
+
+        api_key = self.api_key_edit.text().strip()
+        if not api_key:
+            QMessageBox.warning(self, tr(self.ui_language, 'app_title'), tr(self.ui_language, 'api_key_required_for_models'))
+            return
+
+        try:
+            models = list_available_models(provider, api_key)
+        except RemoteProviderError as error:
+            QMessageBox.warning(self, tr(self.ui_language, 'app_title'), str(error))
+            return
+
+        self._populate_model_combo(models)
+
+    def _clear_current_provider_api_key(self) -> None:
+        provider = self.selected_translation_provider()
+        if provider not in {'openai', 'gemini'}:
+            return
+        self.api_keys[provider] = ''
+        self.provider_models[provider] = ''
+        self.api_key_edit.clear()
+        self._populate_model_combo([])
+
+    def _persist_current_provider_inputs(self) -> None:
+        self._persist_provider_inputs(self._displayed_provider)
+
+    def _persist_provider_inputs(self, provider: str) -> None:
+        if self._initializing:
+            return
+        if provider not in {'openai', 'gemini'}:
+            return
+        self.api_keys[provider] = self.api_key_edit.text().strip()
+        self.provider_models[provider] = str(self.model_combo.currentData() or '')
+
+    def _handle_api_key_text_changed(self) -> None:
+        self._persist_current_provider_inputs()
+        self._refresh_provider_status_labels()
+
+    def _refresh_provider_status_labels(self) -> None:
+        provider = str(self.provider_combo.currentData())
+        provider_is_local = provider == 'local'
+        current_api_key = self.api_keys.get(provider, '')
+        if provider_is_local:
+            self.api_key_status_label.setText('')
+        elif current_api_key:
+            self.api_key_status_label.setText(tr(self.ui_language, 'settings_api_key_saved'))
+        else:
+            self.api_key_status_label.setText(tr(self.ui_language, 'settings_api_key_missing_notice'))
+
+        current_model = self.provider_models.get(provider, '')
+        if provider_is_local:
+            self.model_status_label.setText('')
+        elif current_model:
+            self.model_status_label.setText(tr(self.ui_language, 'settings_model_saved', model=current_model))
+        else:
+            self.model_status_label.setText(tr(self.ui_language, 'settings_model_missing_notice'))
 
 
 class AboutDialog(QDialog):
@@ -252,6 +542,8 @@ class HelpDialog(QDialog):
             <p>{tr(ui_language, 'help_ai_body')}</p>
             <h3>{tr(ui_language, 'help_privacy_title')}</h3>
             <p>{tr(ui_language, 'help_privacy_body')}</p>
+            <h3>{tr(ui_language, 'help_api_mode_title')}</h3>
+            <p>{tr(ui_language, 'help_api_mode_body')}</p>
             <h3>{tr(ui_language, 'help_support_title')}</h3>
             <p>{tr(ui_language, 'help_support_body')}</p>
             <p><a href="{PROJECT_ISSUES_URL}">{tr(ui_language, 'about_issues_link')}</a></p>
@@ -276,6 +568,9 @@ class TranslationWorker(QObject):
         target_language: str,
         performance_mode: str,
         ui_language: str,
+        translation_provider: str,
+        remote_model_id: str,
+        remote_api_key: str,
     ) -> None:
         super().__init__()
         self.input_path = input_path
@@ -284,6 +579,9 @@ class TranslationWorker(QObject):
         self.target_language = target_language
         self.performance_mode = performance_mode
         self.ui_language = ui_language
+        self.translation_provider = translation_provider
+        self.remote_model_id = remote_model_id
+        self.remote_api_key = remote_api_key
         self._cancel_requested = False
 
     def request_cancel(self) -> None:
@@ -299,6 +597,9 @@ class TranslationWorker(QObject):
             engine=TranslationEngine(
                 performance_mode=self.performance_mode,
                 ui_language=self.ui_language,
+                translation_provider=self.translation_provider,
+                remote_model_id=self.remote_model_id,
+                remote_api_key=self.remote_api_key,
             ),
         )
         try:
@@ -373,8 +674,12 @@ class MainWindow(QMainWindow):
         self.settings = QSettings('Juanjo', 'ELPXTranslatorDesktop')
         self.ui_language = self._load_ui_language()
         self.performance_mode = self._load_performance_mode()
+        self.translation_provider = self._load_translation_provider()
+        self.provider_api_keys = self._load_provider_api_keys()
+        self.provider_models = self._load_provider_models()
         self.preferred_target_language = self._load_target_language()
         self.receive_beta_updates = self._load_receive_beta_updates()
+        self.detected_project_language: str | None = None
         self.current_status = 'waiting'
 
         self._build_ui()
@@ -515,14 +820,21 @@ class MainWindow(QMainWindow):
 
         self.origin_combo = QComboBox()
         self.target_combo = QComboBox()
+        self.custom_target_label = self._make_field_label('')
+        self.custom_target_edit = QLineEdit()
+        self.custom_target_edit.setMaximumWidth(220)
+        self.custom_target_edit.textEdited.connect(self._handle_custom_target_text_changed)
         self.language_labels = {code: label for code, label in LANGUAGE_OPTIONS}
-        self._rebuild_language_combos(DEFAULT_SOURCE_LANGUAGE, self.preferred_target_language)
-        self.origin_combo.currentIndexChanged.connect(self._sync_language_pairs)
+        self._rebuild_language_combos(self._default_source_language(), self.preferred_target_language)
+        self.origin_combo.currentIndexChanged.connect(self._handle_source_language_changed)
         self.target_combo.currentIndexChanged.connect(self._sync_output_path_with_target_language)
         self.target_combo.currentIndexChanged.connect(self._persist_target_language)
+        self.target_combo.currentIndexChanged.connect(self._toggle_custom_target_visibility)
         self.target_combo.currentIndexChanged.connect(self._sync_language_pairs)
         controls_layout.addWidget(self.origin_combo, 5, 0)
         controls_layout.addWidget(self.target_combo, 5, 1)
+        controls_layout.addWidget(self.custom_target_label, 6, 0)
+        controls_layout.addWidget(self.custom_target_edit, 6, 1)
 
         self.translate_button = QPushButton('')
         self.translate_button.setObjectName('primaryButton')
@@ -581,6 +893,12 @@ class MainWindow(QMainWindow):
                 font-size: 28px;
                 font-weight: 700;
                 color: #16212b;
+            }
+            QLabel#sectionTitle {
+                color: #16212b;
+                font-size: 16px;
+                font-weight: 700;
+                padding: 0 0 4px 0;
             }
             QLabel#statusChip {
                 background: #e3f3eb;
@@ -764,11 +1082,39 @@ class MainWindow(QMainWindow):
             self._show_error(tr(self.ui_language, 'invalid_input_file'))
             return
 
-        source_language = self.origin_combo.currentData()
-        target_language = self.target_combo.currentData()
+        source_language = self._selected_source_language()
+        target_language = self._selected_target_language()
+        if self.translation_provider == 'local' and source_language not in SUPPORTED_LANGUAGE_CODES:
+            self._show_error(tr(self.ui_language, 'local_mode_source_requires_api', language=source_language))
+            return
         if source_language == target_language:
             self._show_error(tr(self.ui_language, 'same_languages_error'))
             return
+        if self._is_custom_target_selected() and not self._is_valid_custom_target_language(target_language):
+            self._show_error(tr(self.ui_language, 'custom_target_language_invalid'))
+            return
+        if self.detected_project_language and source_language != self.detected_project_language:
+            detected_label = self.language_labels.get(self.detected_project_language, self.detected_project_language)
+            selected_label = self.language_labels.get(source_language, source_language)
+            self._show_error(
+                tr(
+                    self.ui_language,
+                    'source_language_mismatch_warning',
+                    detected_language=f'{self.detected_project_language} · {detected_label}',
+                    selected_language=f'{source_language} · {selected_label}',
+                )
+            )
+            return
+
+        remote_api_key = self.provider_api_keys.get(self.translation_provider, '').strip()
+        remote_model_id = self.provider_models.get(self.translation_provider, '').strip()
+        if self.translation_provider != 'local':
+            if not remote_api_key:
+                self._show_error(tr(self.ui_language, 'remote_api_key_missing'))
+                return
+            if not remote_model_id:
+                self._show_error(tr(self.ui_language, 'remote_model_missing'))
+                return
 
         output_text = self.output_edit.text().strip()
         if output_text:
@@ -790,6 +1136,9 @@ class MainWindow(QMainWindow):
             target_language=target_language,
             performance_mode=self.performance_mode,
             ui_language=self.ui_language,
+            translation_provider=self.translation_provider,
+            remote_model_id=remote_model_id,
+            remote_api_key=remote_api_key,
         )
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
@@ -930,13 +1279,23 @@ class MainWindow(QMainWindow):
 
     def _show_error(self, message: str) -> None:
         self._set_status('error')
-        QMessageBox.critical(self, tr(self.ui_language, 'app_title'), message)
+        self.current_message_label.setText(message)
+        self._append_log(ProgressEvent(message, state='error'))
+        _append_runtime_log(f'UI error: {message}')
+
+    def _show_warning(self, message: str) -> None:
+        self.current_message_label.setText(message)
+        self._append_log(ProgressEvent(message))
+        _append_runtime_log(f'UI warning: {message}')
 
     def _open_settings(self) -> None:
         dialog = SettingsDialog(
             self.performance_mode,
             self.ui_language,
             self.receive_beta_updates,
+            self.translation_provider,
+            self.provider_api_keys,
+            self.provider_models,
             self,
         )
         if dialog.exec() != QDialog.Accepted:
@@ -945,12 +1304,24 @@ class MainWindow(QMainWindow):
         self.ui_language = dialog.selected_ui_language()
         self.performance_mode = dialog.selected_performance_mode()
         self.receive_beta_updates = dialog.selected_receive_beta_updates()
+        self.translation_provider = dialog.selected_translation_provider()
+        self.provider_api_keys = dialog.selected_api_keys()
+        self.provider_models = dialog.selected_models()
         self.settings.setValue('ui_language', self.ui_language)
         self.settings.setValue('performance_mode', self.performance_mode)
         self.settings.setValue('receive_beta_updates', self.receive_beta_updates)
+        self.settings.setValue('translation_provider', self.translation_provider)
+        for provider, api_key in self.provider_api_keys.items():
+            self.settings.setValue(f'api_key_{provider}', api_key)
+        for provider, model_id in self.provider_models.items():
+            self.settings.setValue(f'model_{provider}', model_id)
         self.latest_version = None
         self.latest_version_url = None
         self._apply_ui_texts()
+        self._rebuild_language_combos(
+            self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE,
+            self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE,
+        )
         self._refresh_settings_summary()
         self._restart_update_check()
         if self.running:
@@ -964,21 +1335,32 @@ class MainWindow(QMainWindow):
         try:
             detected_language = ElpxTranslationService().detect_project_language(input_path)
         except Exception:  # noqa: BLE001
+            self.detected_project_language = None
             return
 
-        if not detected_language or detected_language not in SUPPORTED_LANGUAGE_CODES:
+        if not detected_language:
+            self.detected_project_language = None
             return
 
+        self.detected_project_language = detected_language
         self._rebuild_language_combos(
             detected_language,
             self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE,
         )
+        if self.translation_provider == 'local' and detected_language not in SUPPORTED_LANGUAGE_CODES:
+            self._show_warning(
+                tr(
+                    self.ui_language,
+                    'local_mode_detected_source_requires_api',
+                    language=detected_language,
+                )
+            )
 
     def _set_combo_languages(self, combo: QComboBox, language_codes: list[str], selected_code: str) -> None:
         combo.blockSignals(True)
         combo.clear()
         for code in sorted(language_codes):
-            combo.addItem(f'{code} · {self.language_labels[code]}', code)
+            combo.addItem(self._language_option_label(code), code)
 
         combo_index = combo.findData(selected_code)
         if combo_index < 0 and combo.count():
@@ -988,26 +1370,81 @@ class MainWindow(QMainWindow):
         combo.blockSignals(False)
 
     def _rebuild_language_combos(self, source_language: str, target_language: str) -> None:
-        source_options = supported_source_languages(target_language)
+        effective_target_language = target_language
+        custom_target_language = ''
+        if self.translation_provider != 'local' and target_language not in SUPPORTED_LANGUAGE_CODES:
+            custom_target_language = target_language
+            effective_target_language = DEFAULT_TARGET_LANGUAGE if target_language == source_language else target_language
+
+        if self.translation_provider != 'local' and effective_target_language not in SUPPORTED_LANGUAGE_CODES:
+            source_options = sorted(SUPPORTED_LANGUAGE_CODES)
+        else:
+            source_options = supported_source_languages(effective_target_language, self.translation_provider)
+        if source_language and source_language not in source_options:
+            source_options = [source_language, *source_options]
         if source_language not in source_options:
             source_language = source_options[0] if source_options else DEFAULT_SOURCE_LANGUAGE
 
-        target_options = supported_target_languages(source_language)
-        if target_language not in target_options:
-            target_language = target_options[0] if target_options else DEFAULT_TARGET_LANGUAGE
+        target_options = supported_target_languages(source_language, self.translation_provider)
+        selected_target_code = effective_target_language
+        if selected_target_code not in target_options:
+            selected_target_code = target_options[0] if target_options else DEFAULT_TARGET_LANGUAGE
 
         self._set_combo_languages(self.origin_combo, source_options, source_language)
-        self._set_combo_languages(self.target_combo, target_options, target_language)
+        self.target_combo.blockSignals(True)
+        self.target_combo.clear()
+        for code in sorted(target_options):
+            self.target_combo.addItem(self._language_option_label(code), code)
+        if self.translation_provider != 'local':
+            self.target_combo.addItem(tr(self.ui_language, 'custom_target_language_option'), CUSTOM_TARGET_LANGUAGE_VALUE)
+        combo_target = selected_target_code
+        if custom_target_language:
+            combo_target = CUSTOM_TARGET_LANGUAGE_VALUE
+        combo_index = self.target_combo.findData(combo_target)
+        if combo_index < 0 and self.target_combo.count():
+            combo_index = 0
+        if combo_index >= 0:
+            self.target_combo.setCurrentIndex(combo_index)
+        self.target_combo.blockSignals(False)
+        if custom_target_language:
+            self.custom_target_edit.setText(custom_target_language)
+        self._toggle_custom_target_visibility()
         self._persist_target_language()
 
     def _sync_language_pairs(self) -> None:
+        if self._is_custom_target_selected():
+            self._toggle_custom_target_visibility()
+            self._persist_target_language()
+            self._sync_output_path_with_target_language()
+            return
         source_language = self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE
-        target_language = self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE
+        target_language = self._selected_target_language()
         self._rebuild_language_combos(source_language, target_language)
 
+    def _handle_source_language_changed(self) -> None:
+        self._sync_language_pairs()
+        source_language = self._selected_source_language()
+        if not self.detected_project_language or source_language == self.detected_project_language:
+            return
+        detected_label = self.language_labels.get(self.detected_project_language, self.detected_project_language)
+        selected_label = self.language_labels.get(source_language, source_language)
+        self._show_warning(
+            tr(
+                self.ui_language,
+                'source_language_mismatch_warning',
+                detected_language=f'{self.detected_project_language} · {detected_label}',
+                selected_language=f'{source_language} · {selected_label}',
+            )
+        )
+
     def _build_output_path(self, input_path: Path) -> Path:
-        target_language = self.target_combo.currentData() or 'xx'
+        target_language = self._selected_target_language() or 'xx'
         return input_path.with_name(f'{input_path.stem}-{target_language}{input_path.suffix}')
+
+    def _default_source_language(self) -> str:
+        if self.ui_language in SUPPORTED_LANGUAGE_CODES:
+            return self.ui_language
+        return DEFAULT_SOURCE_LANGUAGE
 
     def _sync_output_path_with_target_language(self) -> None:
         current_file = self.file_edit.text().strip()
@@ -1031,6 +1468,12 @@ class MainWindow(QMainWindow):
             return configured_value
         return DEFAULT_PERFORMANCE_MODE
 
+    def _load_translation_provider(self) -> str:
+        configured_value = self.settings.value('translation_provider', 'local')
+        if isinstance(configured_value, str) and configured_value in {code for code, _ in TRANSLATION_PROVIDER_OPTIONS}:
+            return configured_value
+        return 'local'
+
     def _load_ui_language(self) -> str:
         configured_value = self.settings.value('ui_language')
         if isinstance(configured_value, str) and configured_value in {code for code, _ in UI_LANGUAGE_OPTIONS}:
@@ -1039,8 +1482,8 @@ class MainWindow(QMainWindow):
 
     def _load_target_language(self) -> str:
         configured_value = self.settings.value('target_language', DEFAULT_TARGET_LANGUAGE)
-        if isinstance(configured_value, str) and configured_value in SUPPORTED_LANGUAGE_CODES:
-            return configured_value
+        if isinstance(configured_value, str) and configured_value.strip():
+            return configured_value.strip()
         return DEFAULT_TARGET_LANGUAGE
 
     def _load_receive_beta_updates(self) -> bool:
@@ -1053,17 +1496,74 @@ class MainWindow(QMainWindow):
             return configured_value != 0
         return False
 
+    def _load_provider_api_keys(self) -> dict[str, str]:
+        return {
+            'openai': str(self.settings.value('api_key_openai', '') or ''),
+            'gemini': str(self.settings.value('api_key_gemini', '') or ''),
+        }
+
+    def _load_provider_models(self) -> dict[str, str]:
+        return {
+            'openai': str(self.settings.value('model_openai', '') or ''),
+            'gemini': str(self.settings.value('model_gemini', '') or ''),
+        }
+
     def _persist_target_language(self) -> None:
-        target_language = self.target_combo.currentData()
-        if isinstance(target_language, str) and target_language in SUPPORTED_LANGUAGE_CODES:
+        target_language = self._selected_target_language()
+        if isinstance(target_language, str) and target_language.strip():
             self.preferred_target_language = target_language
             self.settings.setValue('target_language', target_language)
 
+    def _selected_target_language(self) -> str:
+        combo_value = self.target_combo.currentData()
+        if combo_value == CUSTOM_TARGET_LANGUAGE_VALUE:
+            return self.custom_target_edit.text().strip()
+        return str(combo_value or DEFAULT_TARGET_LANGUAGE)
+
+    def _selected_source_language(self) -> str:
+        return str(self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE)
+
+    def _is_custom_target_selected(self) -> bool:
+        return self.target_combo.currentData() == CUSTOM_TARGET_LANGUAGE_VALUE
+
+    def _toggle_custom_target_visibility(self) -> None:
+        visible = self.translation_provider != 'local' and self._is_custom_target_selected()
+        self.custom_target_label.setVisible(visible)
+        self.custom_target_edit.setVisible(visible)
+        if visible:
+            self.custom_target_edit.setPlaceholderText(tr(self.ui_language, 'custom_target_language_placeholder'))
+
+    def _handle_custom_target_text_changed(self) -> None:
+        if not self._is_custom_target_selected():
+            return
+        self._persist_target_language()
+        self._sync_output_path_with_target_language()
+
+    @staticmethod
+    def _is_valid_custom_target_language(value: str) -> bool:
+        if not value:
+            return False
+        if len(value) > 15:
+            return False
+        allowed = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_')
+        return all(char in allowed for char in value)
+
+    def _language_option_label(self, code: str) -> str:
+        label = self.language_labels.get(code)
+        if label:
+            return f'{code} · {label}'
+        return tr(self.ui_language, 'custom_language_option_label', code=code)
+
     def _refresh_settings_summary(self) -> None:
+        model_summary = '-'
+        if self.translation_provider != 'local':
+            model_summary = self.provider_models.get(self.translation_provider, '-') or '-'
         self.settings_summary_label.setText(
             tr(
                 self.ui_language,
                 'settings_summary',
+                provider=tr(self.ui_language, f'translation_provider_{self.translation_provider}'),
+                model=model_summary,
                 performance=performance_label(self.ui_language, self.performance_mode),
                 updates=tr(
                     self.ui_language,
@@ -1100,6 +1600,8 @@ class MainWindow(QMainWindow):
         self.save_button.setText(tr(self.ui_language, 'save_as_button'))
         self.source_label.setText(tr(self.ui_language, 'source_label'))
         self.target_label.setText(tr(self.ui_language, 'target_label'))
+        self.custom_target_label.setText(tr(self.ui_language, 'custom_target_language_label'))
+        self.custom_target_edit.setPlaceholderText(tr(self.ui_language, 'custom_target_language_placeholder'))
         self.translate_button.setText(tr(self.ui_language, 'translate_button'))
         self.stop_button.setText(tr(self.ui_language, 'stop_button'))
         self.log_title.setText(tr(self.ui_language, 'log_label'))
@@ -1108,6 +1610,10 @@ class MainWindow(QMainWindow):
             self.elapsed_label.setText(tr(self.ui_language, 'elapsed_time', value='00:00'))
             self.eta_label.setText(tr(self.ui_language, 'eta', value='--:--'))
             self.active_model_label.setText(tr(self.ui_language, 'active_model', model_label='-'))
+        self._rebuild_language_combos(
+            self.origin_combo.currentData() or self._default_source_language(),
+            self._selected_target_language(),
+        )
         self._set_status(self.current_status)
         self._refresh_update_banner()
 
@@ -1202,6 +1708,13 @@ class MainWindow(QMainWindow):
 
 
 def main() -> None:
+    def handle_unhandled_exception(exc_type, exc_value, exc_traceback) -> None:
+        formatted = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        _append_runtime_log(f'Unhandled exception:\n{formatted}')
+        traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stderr)
+
+    sys.excepthook = handle_unhandled_exception
+    _append_runtime_log('Application start')
     app = QApplication(sys.argv)
     icon_path = _resolve_app_icon_path()
     if icon_path is not None:
@@ -1209,7 +1722,9 @@ def main() -> None:
     window = MainWindow()
     window.setWindowIcon(app.windowIcon())
     window.show()
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    _append_runtime_log(f'Application exit code: {exit_code}')
+    sys.exit(exit_code)
 
 
 def _resolve_app_icon_path() -> Path | None:

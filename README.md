@@ -1,11 +1,14 @@
 # ELPX Translator Desktop
 
-Aplicacion de escritorio multiplataforma para traducir proyectos `.elpx` localmente.
+Aplicacion de escritorio multiplataforma para traducir proyectos `.elpx`.
+
+Por defecto trabaja en local, en tu propio equipo. Como opcion de prueba, tambien puede usar tu propia clave API de OpenAI o Gemini para traducir con un proveedor externo.
 
 Objetivos:
 
 - Linux, Windows y macOS
-- procesamiento local
+- procesamiento local por defecto
+- modo opcional por API con clave propia del usuario
 - misma estructura `.elpx`
 - mejor rendimiento que la version web en navegador
 
@@ -62,3 +65,24 @@ Notas:
   `Suave`, `Equilibrado`, `Rapido` y `Maximo`.
 - Si cambias la configuracion durante una traduccion, se aplicara en la siguiente.
 - La app incluye un boton `Parar` para cancelar la traduccion actual y volver a lanzarla con otra configuracion.
+
+## Modo API opcional
+
+La app sigue siendo local por defecto. El modo por API es opcional y esta pensado como funcion de prueba para usuarios que quieran usar su propia cuenta de proveedor.
+
+- Proveedores disponibles: `OpenAI API` y `Gemini API`.
+- La clave API la aporta el propio usuario.
+- Los modelos remotos se cargan al pulsar `Actualizar modelos`.
+- El idioma de destino admite un codigo personalizado en modo API, por ejemplo `sv`, `ja`, `pt-BR` o `zh-CN`.
+- Si activas este modo, el contenido traducible se enviara al proveedor externo elegido.
+
+Obtener claves API:
+
+- OpenAI: `https://platform.openai.com/api-keys`
+- Gemini: `https://aistudio.google.com/api-keys`
+
+Notas importantes sobre esta beta:
+
+- La clave API se guarda localmente en la configuracion del programa en texto plano.
+- Puedes borrar la clave guardada desde `Configuracion`.
+- El comportamiento actual de la web del proyecto no refleja todavia este modo opcional; se documenta aqui y en la propia app mientras siga en beta.

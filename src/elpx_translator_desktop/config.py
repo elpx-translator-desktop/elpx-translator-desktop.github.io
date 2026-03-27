@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+TRANSLATION_PROVIDER_OPTIONS = [
+    ('local', 'Local'),
+    ('openai', 'OpenAI'),
+    ('gemini', 'Gemini'),
+]
+TRANSLATION_PROVIDER_LABELS = dict(TRANSLATION_PROVIDER_OPTIONS)
+
 LANGUAGE_OPTIONS = [
     ('ar', 'العربية'),
     ('bn', 'বাংলা'),
@@ -125,11 +132,22 @@ EUSKERA_MODEL_CONFIGS = {
 
 
 def is_supported_language_pair(source_language: str, target_language: str) -> bool:
+    return is_supported_language_pair_for_provider(source_language, target_language, 'local')
+
+
+def is_supported_language_pair_for_provider(
+    source_language: str,
+    target_language: str,
+    translation_provider: str,
+) -> bool:
     if source_language == target_language:
         return False
 
     if source_language not in SUPPORTED_LANGUAGE_CODES or target_language not in SUPPORTED_LANGUAGE_CODES:
         return False
+
+    if translation_provider != 'local':
+        return True
 
     if 'eu' in {source_language, target_language}:
         return (source_language, target_language) in EUSKERA_MODEL_CONFIGS
@@ -137,9 +155,17 @@ def is_supported_language_pair(source_language: str, target_language: str) -> bo
     return True
 
 
-def supported_target_languages(source_language: str) -> list[str]:
-    return [code for code, _ in LANGUAGE_OPTIONS if is_supported_language_pair(source_language, code)]
+def supported_target_languages(source_language: str, translation_provider: str = 'local') -> list[str]:
+    return [
+        code
+        for code, _ in LANGUAGE_OPTIONS
+        if is_supported_language_pair_for_provider(source_language, code, translation_provider)
+    ]
 
 
-def supported_source_languages(target_language: str) -> list[str]:
-    return [code for code, _ in LANGUAGE_OPTIONS if is_supported_language_pair(code, target_language)]
+def supported_source_languages(target_language: str, translation_provider: str = 'local') -> list[str]:
+    return [
+        code
+        for code, _ in LANGUAGE_OPTIONS
+        if is_supported_language_pair_for_provider(code, target_language, translation_provider)
+    ]

@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=ELPX Translator Desktop
-Comment=Traducir proyectos .elpx localmente
-Comment[es]=Traducir proyectos .elpx localmente
-Comment[ca]=Traduir projectes .elpx localment
-Comment[en]=Translate .elpx projects locally
+Comment=Traducir proyectos .elpx en local o con tu propia API
+Comment[es]=Traducir proyectos .elpx en local o con tu propia API
+Comment[ca]=Traduir projectes .elpx en local o amb la teua API
+Comment[en]=Translate .elpx projects locally or with your own API
 Exec=elpx-translator-desktop
 Icon=elpx-translator-desktop
 Terminal=false

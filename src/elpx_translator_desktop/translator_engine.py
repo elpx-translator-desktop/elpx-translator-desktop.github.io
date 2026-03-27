@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from transformers import AutoTokenizer
 
 from .config import DEFAULT_PERFORMANCE_MODE, EUSKERA_MODEL_CONFIGS, MODEL_CONFIG, ModelConfig
 from .progress import ProgressEvent, TranslationCancelledError
+from .remote_provider import RemoteProviderError, create_translation_completion
 from .text_utils import sanitize_translated_text, split_long_text
 from .ui_i18n import tr
 
@@ -47,17 +49,32 @@ class RuntimeProfile:
 
 
 class TranslationEngine:
-    def __init__(self, performance_mode: str = DEFAULT_PERFORMANCE_MODE, ui_language: str = 'es') -> None:
+    def __init__(
+        self,
+        performance_mode: str = DEFAULT_PERFORMANCE_MODE,
+        ui_language: str = 'es',
+        translation_provider: str = 'local',
+        remote_model_id: str | None = None,
+        remote_api_key: str | None = None,
+    ) -> None:
         self._translator: ctranslate2.Translator | None = None
         self._tokenizer = None
         self._model_dir: Path | None = None
         self._runtime_profile: RuntimeProfile | None = None
         self._model_key: str | None = None
         self._model_config: ModelConfig | None = None
+        self._remote_ready = False
         self.performance_mode = performance_mode
         self.ui_language = ui_language
+        self.translation_provider = translation_provider
+        self.remote_model_id = (remote_model_id or '').strip()
+        self.remote_api_key = (remote_api_key or '').strip()
 
     def ensure_model(self, source_language: str, target_language: str, progress_callback, should_cancel=None) -> None:
+        if self.translation_provider != 'local':
+            self._ensure_remote_provider(progress_callback)
+            return
+
         self._raise_if_cancelled(should_cancel)
         model_config = self._resolve_model_config(source_language, target_language)
         model_key = model_config.repo_id
@@ -152,6 +169,18 @@ class TranslationEngine:
         if source_language == target_language:
             return list(texts)
 
+        if self.translation_provider != 'local':
+            return self._translate_texts_remote(
+                texts,
+                source_language=source_language,
+                target_language=target_language,
+                progress_callback=progress_callback,
+                progress_label=progress_label,
+                progress_meta=progress_meta,
+                batch_size=batch_size,
+                should_cancel=should_cancel,
+            )
+
         self.ensure_model(source_language, target_language, progress_callback, should_cancel)
         assert self._translator is not None
         assert self._tokenizer is not None
@@ -244,6 +273,135 @@ class TranslationEngine:
 
         return [' '.join(chunks).strip() or texts[index] for index, chunks in enumerate(results)]
 
+    def _translate_texts_remote(
+        self,
+        texts: list[str],
+        *,
+        source_language: str,
+        target_language: str,
+        progress_callback,
+        progress_label: str,
+        progress_meta: dict | None = None,
+        batch_size: int | None = None,
+        should_cancel=None,
+    ) -> list[str]:
+        self.ensure_model(source_language, target_language, progress_callback, should_cancel)
+        effective_batch_size = batch_size or 24
+
+        jobs: list[dict] = []
+        for index, text in enumerate(texts):
+            chunks = split_long_text(text)
+            for chunk_index, chunk in enumerate(chunks):
+                jobs.append(
+                    {
+                        'text': chunk,
+                        'result_index': index,
+                        'chunk_index': chunk_index,
+                        'chunk_count': len(chunks),
+                        'unit_index': (progress_meta or {}).get('start_unit_index', 1) + index,
+                        'unit_offset': index,
+                    },
+                )
+
+        results: list[list[str]] = [[] for _ in texts]
+        completed_units: set[int] = set()
+
+        for offset in range(0, len(jobs), effective_batch_size):
+            self._raise_if_cancelled(should_cancel)
+            batch = jobs[offset : offset + effective_batch_size]
+            progress_callback(
+                ProgressEvent(
+                    self._build_batch_message(progress_label, batch, progress_meta),
+                    progress_percent=self._get_batch_progress_percent(batch, progress_meta),
+                    total_units=(progress_meta or {}).get('total_units'),
+                    transient=True,
+                ),
+            )
+            translated_batch = self._translate_remote_batch_with_retries(
+                batch,
+                source_language=source_language,
+                target_language=target_language,
+                progress_callback=progress_callback,
+                progress_label=progress_label,
+                progress_meta=progress_meta,
+                should_cancel=should_cancel,
+            )
+            for batch_index, translated_text in enumerate(translated_batch):
+                self._raise_if_cancelled(should_cancel)
+                job = batch[batch_index]
+                text = sanitize_translated_text(translated_text.strip())
+                results[job['result_index']].append(text or job['text'])
+
+                if job['result_index'] not in completed_units and len(results[job['result_index']]) == job['chunk_count']:
+                    completed_units.add(job['result_index'])
+                    completed_value = (progress_meta or {}).get('completed_units_before_batch', 0) + job['unit_offset'] + 1
+                    progress_callback(
+                        ProgressEvent(
+                            tr(
+                                self.ui_language,
+                                'unit_completed',
+                                progress_label=progress_label,
+                                unit_index=job['unit_index'],
+                                total_units=(progress_meta or {}).get('total_units', '?'),
+                            ),
+                            progress_percent=(completed_value / (progress_meta or {}).get('total_units', 1)) * 100,
+                            completed_units=completed_value,
+                            total_units=(progress_meta or {}).get('total_units'),
+                            silent=True,
+                        ),
+                    )
+
+        return [' '.join(chunks).strip() or texts[index] for index, chunks in enumerate(results)]
+
+    def _translate_remote_batch_with_retries(
+        self,
+        batch: list[dict],
+        *,
+        source_language: str,
+        target_language: str,
+        progress_callback,
+        progress_label: str,
+        progress_meta: dict | None = None,
+        should_cancel=None,
+    ) -> list[str]:
+        max_attempts = 4
+        for attempt in range(1, max_attempts + 1):
+            self._raise_if_cancelled(should_cancel)
+            try:
+                return create_translation_completion(
+                    self.translation_provider,
+                    api_key=self.remote_api_key,
+                    model_id=self.remote_model_id,
+                    source_language=source_language,
+                    target_language=target_language,
+                    texts=[job['text'] for job in batch],
+                )
+            except RemoteProviderError as error:
+                if error.status_code != 429 or attempt >= max_attempts:
+                    raise
+                retry_delay = max(error.retry_after_seconds or 2.0, 1.0)
+                progress_callback(
+                    ProgressEvent(
+                        tr(
+                            self.ui_language,
+                            'remote_rate_limit_retry',
+                            provider=tr(self.ui_language, f'translation_provider_{self.translation_provider}'),
+                            wait_seconds=f'{retry_delay:.1f}',
+                            attempt=attempt,
+                            max_attempts=max_attempts,
+                        ),
+                        progress_percent=self._get_batch_progress_percent(batch, progress_meta),
+                        total_units=(progress_meta or {}).get('total_units'),
+                        transient=True,
+                    ),
+                )
+                end_time = time.monotonic() + retry_delay
+                while time.monotonic() < end_time:
+                    self._raise_if_cancelled(should_cancel)
+                    time.sleep(min(0.2, end_time - time.monotonic()))
+
+        raise RemoteProviderError('No se ha podido completar el lote remoto tras varios reintentos.')
+
     @staticmethod
     def _resolve_model_config(source_language: str, target_language: str) -> ModelConfig:
         return EUSKERA_MODEL_CONFIGS.get((source_language, target_language), MODEL_CONFIG)
@@ -280,6 +438,27 @@ class TranslationEngine:
             last_unit=last_job['unit_index'],
             total_units=(progress_meta or {}).get('total_units', '?'),
         )
+
+    def _ensure_remote_provider(self, progress_callback) -> None:
+        if not self.remote_api_key:
+            raise ValueError(tr(self.ui_language, 'remote_api_key_missing'))
+        if not self.remote_model_id:
+            raise ValueError(tr(self.ui_language, 'remote_model_missing'))
+        if self._remote_ready:
+            return
+
+        progress_callback(
+            ProgressEvent(
+                tr(
+                    self.ui_language,
+                    'remote_provider_ready',
+                    provider=tr(self.ui_language, f'translation_provider_{self.translation_provider}'),
+                    model_label=self.remote_model_id,
+                ),
+                active_model_label=f'{tr(self.ui_language, f"translation_provider_{self.translation_provider}")} · {self.remote_model_id}',
+            ),
+        )
+        self._remote_ready = True
 
     @staticmethod
     def _get_batch_progress_percent(batch: list[dict], progress_meta: dict | None) -> float | None:

@@ -12,7 +12,7 @@ Si el tag se crea antes de que termine el commit de version, la release puede ap
 
 1. Actualizar la version en `pyproject.toml` y en `src/elpx_translator_desktop/__init__.py`.
    - estable: `0.1.7`
-   - beta para Python y Windows/macOS/AppImage: `0.1.7b3`
+   - beta para Python y Windows/macOS/AppImage: `0.1.7b4`
    - no usar `~` en `pyproject.toml` ni en `__version__`, porque rompe `pip install -e .[build]`
 2. Verificar localmente:
    - `pytest -q tests/test_translator_engine.py tests/test_elpx_service.py`
@@ -57,17 +57,17 @@ Para usuarios de Debian, Ubuntu y derivadas, una beta `0.1.5b10` puede considera
 Para evitar mensajes de "desactualizacion" en Linux y, a la vez, no romper el build de Python:
 
 - si ya se han distribuido betas de una serie, la estable publica siguiente debe subir de version, por ejemplo `0.1.6`;
-- la version de Python y de la app debe seguir un formato PEP 440, por ejemplo `0.1.7b3`;
-- el paquete `.deb` debe convertirse automaticamente a formato Debian, por ejemplo `0.1.7~beta3`;
-- el tag y la release de GitHub deben usar un nombre valido como ref, por ejemplo `v0.1.7-beta3`.
+- la version de Python y de la app debe seguir un formato PEP 440, por ejemplo `0.1.7b4`;
+- el paquete `.deb` debe convertirse automaticamente a formato Debian, por ejemplo `0.1.7~beta4`;
+- el tag y la release de GitHub deben usar un nombre valido como ref, por ejemplo `v0.1.7-beta4`.
 
 Resumen practico de una beta correcta:
 
-- `pyproject.toml`: `0.1.7b3`
-- `src/elpx_translator_desktop/__init__.py`: `0.1.7b3`
-- `.deb`: `0.1.7~beta3`
-- tag Git: `v0.1.7-beta3`
-- release GitHub: `v0.1.7-beta3`
+- `pyproject.toml`: `0.1.7b4`
+- `src/elpx_translator_desktop/__init__.py`: `0.1.7b4`
+- `.deb`: `0.1.7~beta4`
+- tag Git: `v0.1.7-beta4`
+- release GitHub: `v0.1.7-beta4`
 
 ## Workflow de Linux
 
