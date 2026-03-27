@@ -8,10 +8,14 @@ from urllib import error, request
 
 OPENAI_API_KEY_URL = 'https://platform.openai.com/api-keys'
 GEMINI_API_KEY_URL = 'https://aistudio.google.com/api-keys'
+ANTHROPIC_API_KEY_URL = 'https://console.anthropic.com/settings/keys'
+DEEPSEEK_API_KEY_URL = 'https://platform.deepseek.com/api_keys'
 
 OPENAI_API_BASE_URL = 'https://api.openai.com/v1'
 GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai'
 GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
+ANTHROPIC_API_BASE_URL = 'https://api.anthropic.com/v1'
+DEEPSEEK_API_BASE_URL = 'https://api.deepseek.com/v1'
 
 DEFAULT_REMOTE_MODEL_IDS = {
     'openai': [
@@ -23,6 +27,15 @@ DEFAULT_REMOTE_MODEL_IDS = {
         'gemini-2.5-flash',
         'gemini-2.5-pro',
         'gemini-2.0-flash',
+    ],
+    'anthropic': [
+        'claude-sonnet-4-5',
+        'claude-opus-4-1',
+        'claude-3-5-haiku-latest',
+    ],
+    'deepseek': [
+        'deepseek-chat',
+        'deepseek-reasoner',
     ],
 }
 
@@ -53,6 +66,10 @@ def get_api_key_url(provider: str) -> str | None:
         return OPENAI_API_KEY_URL
     if provider == 'gemini':
         return GEMINI_API_KEY_URL
+    if provider == 'anthropic':
+        return ANTHROPIC_API_KEY_URL
+    if provider == 'deepseek':
+        return DEEPSEEK_API_KEY_URL
     return None
 
 
@@ -65,6 +82,10 @@ def list_available_models(provider: str, api_key: str) -> list[ProviderModel]:
         return _list_openai_models(api_key)
     if provider == 'gemini':
         return _list_gemini_models(api_key)
+    if provider == 'anthropic':
+        return _list_anthropic_models(api_key)
+    if provider == 'deepseek':
+        return _list_deepseek_models(api_key)
     return []
 
 
@@ -172,6 +193,50 @@ def _is_supported_openai_model(model_id: str) -> bool:
     return lowered.startswith('gpt-')
 
 
+def _list_anthropic_models(api_key: str) -> list[ProviderModel]:
+    payload = _http_json(
+        f'{ANTHROPIC_API_BASE_URL}/models',
+        headers={
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+        },
+    )
+    model_ids = sorted(
+        {
+            item.get('id', '')
+            for item in payload.get('data', [])
+            if isinstance(item, dict) and _is_supported_anthropic_model(item.get('id', ''))
+        },
+        key=_remote_model_sort_key,
+    )
+    return [ProviderModel(model_id=model_id, label=model_id) for model_id in model_ids]
+
+
+def _list_deepseek_models(api_key: str) -> list[ProviderModel]:
+    payload = _http_json(
+        f'{DEEPSEEK_API_BASE_URL}/models',
+        headers={
+            'Authorization': f'Bearer {api_key}',
+        },
+    )
+    model_ids = sorted(
+        {
+            item.get('id', '')
+            for item in payload.get('data', [])
+            if isinstance(item, dict) and _is_supported_deepseek_model(item.get('id', ''))
+        },
+        key=_remote_model_sort_key,
+    )
+    return [ProviderModel(model_id=model_id, label=model_id) for model_id in model_ids]
+
+
+def _is_supported_anthropic_model(model_id: str) -> bool:
+    if not model_id:
+        return False
+    lowered = model_id.lower()
+    return lowered.startswith('claude-')
+
+
 def _is_supported_gemini_model(model: dict) -> bool:
     name = model.get('name', '')
     if not isinstance(name, str) or not name.startswith('models/gemini'):
@@ -192,6 +257,13 @@ def _is_supported_gemini_model(model: dict) -> bool:
     return not any(marker in lowered for marker in excluded_markers)
 
 
+def _is_supported_deepseek_model(model_id: str) -> bool:
+    if not model_id:
+        return False
+    lowered = model_id.lower()
+    return lowered.startswith('deepseek-')
+
+
 def _remote_model_sort_key(model_id: str) -> tuple[int, str]:
     priority_map = {
         'gpt-5-mini': 0,
@@ -200,6 +272,11 @@ def _remote_model_sort_key(model_id: str) -> tuple[int, str]:
         'gemini-2.5-flash': 0,
         'gemini-2.5-pro': 1,
         'gemini-2.0-flash': 2,
+        'claude-sonnet-4-5': 0,
+        'claude-opus-4-1': 1,
+        'claude-3-5-haiku-latest': 2,
+        'deepseek-chat': 0,
+        'deepseek-reasoner': 1,
     }
     return (priority_map.get(model_id, 100), model_id)
 
@@ -218,6 +295,16 @@ def _chat_completion(
     elif provider == 'gemini':
         url = f'{GEMINI_OPENAI_BASE_URL}/chat/completions'
         headers = {'Authorization': f'Bearer {api_key}'}
+    elif provider == 'deepseek':
+        url = f'{DEEPSEEK_API_BASE_URL}/chat/completions'
+        headers = {'Authorization': f'Bearer {api_key}'}
+    elif provider == 'anthropic':
+        return _anthropic_message_completion(
+            api_key=api_key,
+            model_id=model_id,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
     else:
         raise RemoteProviderError(f'Proveedor remoto no soportado: {provider}')
 
@@ -246,6 +333,49 @@ def _chat_completion(
         return ''.join(part.get('text', '') for part in message if isinstance(part, dict))
 
     raise RemoteProviderError('No se ha podido leer el contenido de la respuesta remota.')
+
+
+def _anthropic_message_completion(
+    *,
+    api_key: str,
+    model_id: str,
+    system_prompt: str,
+    user_prompt: str,
+) -> str:
+    payload = _http_json(
+        f'{ANTHROPIC_API_BASE_URL}/messages',
+        method='POST',
+        headers={
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+        },
+        body={
+            'model': model_id,
+            'max_tokens': 8192,
+            'temperature': 0,
+            'system': system_prompt,
+            'messages': [
+                {'role': 'user', 'content': user_prompt},
+            ],
+        },
+    )
+    content = payload.get('content')
+    if not isinstance(content, list):
+        raise RemoteProviderError('La respuesta de Anthropic no tiene el formato esperado.')
+
+    parts: list[str] = []
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        if item.get('type') != 'text':
+            continue
+        text = item.get('text')
+        if isinstance(text, str):
+            parts.append(text)
+
+    if not parts:
+        raise RemoteProviderError('No se ha podido leer el texto devuelto por Anthropic.')
+    return ''.join(parts)
 
 
 def _extract_json(content: str) -> dict:

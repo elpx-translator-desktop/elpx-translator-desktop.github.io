@@ -6,6 +6,8 @@ TRANSLATION_PROVIDER_OPTIONS = [
     ('local', 'Local'),
     ('openai', 'OpenAI'),
     ('gemini', 'Gemini'),
+    ('anthropic', 'Anthropic'),
+    ('deepseek', 'DeepSeek'),
 ]
 TRANSLATION_PROVIDER_LABELS = dict(TRANSLATION_PROVIDER_OPTIONS)
 

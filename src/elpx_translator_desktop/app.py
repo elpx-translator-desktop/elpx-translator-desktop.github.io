@@ -431,7 +431,7 @@ class SettingsDialog(QDialog):
 
     def _clear_current_provider_api_key(self) -> None:
         provider = self.selected_translation_provider()
-        if provider not in {'openai', 'gemini'}:
+        if provider not in {'openai', 'gemini', 'anthropic', 'deepseek'}:
             return
         self.api_keys[provider] = ''
         self.provider_models[provider] = ''
@@ -444,7 +444,7 @@ class SettingsDialog(QDialog):
     def _persist_provider_inputs(self, provider: str) -> None:
         if self._initializing:
             return
-        if provider not in {'openai', 'gemini'}:
+        if provider not in {'openai', 'gemini', 'anthropic', 'deepseek'}:
             return
         self.api_keys[provider] = self.api_key_edit.text().strip()
         self.provider_models[provider] = str(self.model_combo.currentData() or '')
@@ -1500,12 +1500,16 @@ class MainWindow(QMainWindow):
         return {
             'openai': str(self.settings.value('api_key_openai', '') or ''),
             'gemini': str(self.settings.value('api_key_gemini', '') or ''),
+            'anthropic': str(self.settings.value('api_key_anthropic', '') or ''),
+            'deepseek': str(self.settings.value('api_key_deepseek', '') or ''),
         }
 
     def _load_provider_models(self) -> dict[str, str]:
         return {
             'openai': str(self.settings.value('model_openai', '') or ''),
             'gemini': str(self.settings.value('model_gemini', '') or ''),
+            'anthropic': str(self.settings.value('model_anthropic', '') or ''),
+            'deepseek': str(self.settings.value('model_deepseek', '') or ''),
         }
 
     def _persist_target_language(self) -> None:

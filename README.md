@@ -70,7 +70,7 @@ Notas:
 
 La app sigue siendo local por defecto. El modo por API es opcional y esta pensado como funcion de prueba para usuarios que quieran usar su propia cuenta de proveedor.
 
-- Proveedores disponibles: `OpenAI API` y `Gemini API`.
+- Proveedores disponibles: `OpenAI API`, `Gemini API`, `Anthropic API` y `DeepSeek API`.
 - La clave API la aporta el propio usuario.
 - Los modelos remotos se cargan al pulsar `Actualizar modelos`.
 - El idioma de destino admite un codigo personalizado en modo API, por ejemplo `sv`, `ja`, `pt-BR` o `zh-CN`.
@@ -80,6 +80,8 @@ Obtener claves API:
 
 - OpenAI: `https://platform.openai.com/api-keys`
 - Gemini: `https://aistudio.google.com/api-keys`
+- Anthropic: `https://console.anthropic.com/settings/keys`
+- DeepSeek: `https://platform.deepseek.com/api_keys`
 
 Notas importantes sobre esta beta:
 
