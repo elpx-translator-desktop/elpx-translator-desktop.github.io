@@ -77,6 +77,7 @@ if __package__ in {None, ''}:
     from elpx_translator_desktop.remote_provider import (  # type: ignore[no-redef]
         RemoteProviderError,
         get_api_key_url,
+        is_valid_remote_model,
         list_available_models,
     )
     from elpx_translator_desktop.translator_engine import TranslationEngine  # type: ignore[no-redef]
@@ -109,7 +110,7 @@ else:
     )
     from .elpx_service import ElpxTranslationService, TranslationOptions
     from .progress import ProgressEvent, TranslationCancelledError
-    from .remote_provider import RemoteProviderError, get_api_key_url, list_available_models
+    from .remote_provider import RemoteProviderError, get_api_key_url, is_valid_remote_model, list_available_models
     from .translator_engine import TranslationEngine
     from .update_checker import UpdateCheckWorker
     from .ui_i18n import UI_LANGUAGE_OPTIONS, detect_ui_language, performance_label, tr
@@ -132,6 +133,7 @@ class SettingsDialog(QDialog):
         self.provider_models = dict(selected_models)
         self._displayed_provider = translation_provider
         self._preferred_remote_provider = translation_provider if translation_provider != 'local' else 'openai'
+        self._updating_provider_section = False
         self._initializing = True
         self.setWindowTitle(tr(ui_language, 'settings_title'))
         self.setModal(True)
@@ -379,6 +381,15 @@ class SettingsDialog(QDialog):
         self._persist_provider_inputs(self._displayed_provider)
         return dict(self.provider_models)
 
+    @staticmethod
+    def _normalized_remote_model(provider: str, model_id: str) -> str:
+        if provider not in {'openai', 'gemini', 'anthropic', 'deepseek'}:
+            return ''
+        normalized = str(model_id or '').strip()
+        if not normalized:
+            return ''
+        return normalized if is_valid_remote_model(provider, normalized) else ''
+
     def _handle_provider_changed(self) -> None:
         self._persist_provider_inputs(self._displayed_provider)
         self._preferred_remote_provider = str(self.provider_combo.currentData())
@@ -395,38 +406,47 @@ class SettingsDialog(QDialog):
         self._update_provider_section()
 
     def _update_provider_section(self) -> None:
+        if self._updating_provider_section:
+            return
+        self._updating_provider_section = True
         provider = self.selected_translation_provider()
-        provider_is_local = provider == 'local'
-        self.performance_section.setVisible(provider_is_local)
-        self.remote_section.setVisible(not provider_is_local)
-        self.performance_combo.setEnabled(provider_is_local)
-        self.provider_help_label.setText(tr(self.ui_language, 'settings_provider_help_remote'))
-        self.api_key_edit.setEnabled(not provider_is_local)
-        self.clear_api_key_button.setEnabled(not provider_is_local)
-        self.model_combo.setEnabled(not provider_is_local)
-        self.refresh_models_button.setEnabled(not provider_is_local)
-        current_api_key = self.api_keys.get(provider, '')
-        self.api_key_edit.setPlaceholderText(
-            '' if provider_is_local or current_api_key else tr(self.ui_language, 'settings_api_key_placeholder')
-        )
-        self.api_key_edit.setText(current_api_key)
-        self._populate_model_combo()
-        key_url = get_api_key_url(provider)
-        if key_url:
-            self.api_key_url_label.setText(
-                tr(
-                    self.ui_language,
-                    'settings_api_key_url',
-                    url=key_url,
-                )
+        try:
+            provider_is_local = provider == 'local'
+            self.performance_section.setVisible(provider_is_local)
+            self.remote_section.setVisible(not provider_is_local)
+            self.performance_combo.setEnabled(provider_is_local)
+            self.provider_help_label.setText(tr(self.ui_language, 'settings_provider_help_remote'))
+            self.api_key_edit.setEnabled(not provider_is_local)
+            self.clear_api_key_button.setEnabled(not provider_is_local)
+            self.model_combo.setEnabled(not provider_is_local)
+            self.refresh_models_button.setEnabled(not provider_is_local)
+            current_api_key = self.api_keys.get(provider, '')
+            self.api_key_edit.blockSignals(True)
+            self.api_key_edit.setPlaceholderText(
+                '' if provider_is_local or current_api_key else tr(self.ui_language, 'settings_api_key_placeholder')
             )
-        else:
-            self.api_key_url_label.setText(tr(self.ui_language, 'settings_local_provider_note'))
-        self._refresh_provider_status_labels()
+            self.api_key_edit.setText(current_api_key)
+            self.api_key_edit.blockSignals(False)
+            self._populate_model_combo()
+            key_url = get_api_key_url(provider)
+            if key_url:
+                self.api_key_url_label.setText(
+                    tr(
+                        self.ui_language,
+                        'settings_api_key_url',
+                        url=key_url,
+                    )
+                )
+            else:
+                self.api_key_url_label.setText(tr(self.ui_language, 'settings_local_provider_note'))
+            self._refresh_provider_status_labels()
+        finally:
+            self._updating_provider_section = False
 
     def _populate_model_combo(self, models=None) -> None:
         provider = self.selected_translation_provider()
-        selected_model = self.provider_models.get(provider, '')
+        selected_model = self._normalized_remote_model(provider, self.provider_models.get(provider, ''))
+        self.provider_models[provider] = selected_model
         available_models = models if models is not None else []
 
         self.model_combo.blockSignals(True)
@@ -480,12 +500,12 @@ class SettingsDialog(QDialog):
         self._persist_provider_inputs(self._displayed_provider)
 
     def _persist_provider_inputs(self, provider: str) -> None:
-        if self._initializing:
+        if self._initializing or self._updating_provider_section:
             return
         if provider not in {'openai', 'gemini', 'anthropic', 'deepseek'}:
             return
         self.api_keys[provider] = self.api_key_edit.text().strip()
-        self.provider_models[provider] = str(self.model_combo.currentData() or '')
+        self.provider_models[provider] = self._normalized_remote_model(provider, str(self.model_combo.currentData() or ''))
 
     def _handle_api_key_text_changed(self) -> None:
         self._persist_current_provider_inputs()
@@ -714,6 +734,8 @@ class MainWindow(QMainWindow):
         self.translation_provider = self._load_translation_provider()
         self.provider_api_keys = self._load_provider_api_keys()
         self.provider_models = self._load_provider_models()
+        for provider, model_id in list(self.provider_models.items()):
+            self.provider_models[provider] = SettingsDialog._normalized_remote_model(provider, model_id)
         self.preferred_target_language = self._load_target_language()
         self.receive_beta_updates = self._load_receive_beta_updates()
         self.detected_project_language: str | None = None
@@ -771,11 +793,6 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(self.about_button)
         header_layout.setAlignment(self.about_button, Qt.AlignmentFlag.AlignVCenter)
 
-        self.status_chip = QLabel('')
-        self.status_chip.setObjectName('statusChip')
-        self.status_chip.setFixedHeight(40)
-        header_layout.addWidget(self.status_chip)
-        header_layout.setAlignment(self.status_chip, Qt.AlignmentFlag.AlignVCenter)
         root_layout.addWidget(header_card)
 
         self.update_banner = QLabel('')
@@ -806,10 +823,22 @@ class MainWindow(QMainWindow):
 
         context_layout.addLayout(context_text_layout, 1)
 
+        context_actions_layout = QHBoxLayout()
+        context_actions_layout.setContentsMargins(0, 0, 0, 0)
+        context_actions_layout.setSpacing(6)
+
+        self.status_chip = QLabel('')
+        self.status_chip.setObjectName('statusChip')
+        self.status_chip.setFixedHeight(30)
+        context_actions_layout.addWidget(self.status_chip, 0, Qt.AlignmentFlag.AlignVCenter)
+
         self.quick_settings_button = QPushButton('')
         self.quick_settings_button.setObjectName('subtleButton')
         self.quick_settings_button.clicked.connect(self._open_settings)
-        context_layout.addWidget(self.quick_settings_button, 0, Qt.AlignmentFlag.AlignTop)
+        self.quick_settings_button.setFixedHeight(30)
+        context_actions_layout.addWidget(self.quick_settings_button, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        context_layout.addLayout(context_actions_layout, 0)
         root_layout.addWidget(self.context_card)
 
         controls_card = self._make_card()
@@ -960,13 +989,6 @@ class MainWindow(QMainWindow):
                 font-weight: 700;
                 padding: 0 0 4px 0;
             }
-            QLabel#statusChip {
-                background: #e3f3eb;
-                color: #1d6c54;
-                border-radius: 16px;
-                padding: 8px 12px;
-                font-weight: 700;
-            }
             QLabel#infoLabel {
                 color: #5f6b76;
                 font-family: "IBM Plex Mono", "Courier New", monospace;
@@ -1031,9 +1053,11 @@ class MainWindow(QMainWindow):
                 border: 1px solid #1f9d84;
             }
             QPushButton#subtleButton {
-                padding: 6px 10px;
-                min-height: 16px;
+                padding: 0 10px;
+                min-height: 30px;
+                max-height: 30px;
                 color: #30404c;
+                border-radius: 9px;
             }
             QPushButton#primaryButton:hover {
                 background: #17816c;
@@ -1048,10 +1072,10 @@ class MainWindow(QMainWindow):
                 background: #dff2ea;
                 color: #1d6c54;
                 border: 1px solid #c8e4d8;
-                border-radius: 12px;
-                padding: 0 16px;
-                min-height: 40px;
-                max-height: 40px;
+                border-radius: 10px;
+                padding: 0 10px;
+                min-height: 30px;
+                max-height: 30px;
                 qproperty-alignment: AlignCenter;
                 font-weight: 700;
             }

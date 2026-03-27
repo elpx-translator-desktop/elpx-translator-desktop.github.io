@@ -85,6 +85,18 @@ def fallback_models(provider: str) -> list[ProviderModel]:
     return [ProviderModel(model_id=model_id, label=model_id) for model_id in DEFAULT_REMOTE_MODEL_IDS.get(provider, [])]
 
 
+def is_valid_remote_model(provider: str, model_id: str) -> bool:
+    if provider == 'openai':
+        return _is_supported_openai_model(model_id)
+    if provider == 'gemini':
+        return _is_supported_gemini_model({'name': f'models/{model_id}'})
+    if provider == 'anthropic':
+        return _is_supported_anthropic_model(model_id)
+    if provider == 'deepseek':
+        return _is_supported_deepseek_model(model_id)
+    return False
+
+
 def list_available_models(provider: str, api_key: str) -> list[ProviderModel]:
     if provider == 'openai':
         return _list_openai_models(api_key)
