@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ELPX Translator web</title>
+  <meta name="description" content="Versión web para traducir archivos .elpx desde el navegador usando tu propia API.">
+  <link rel="icon" href="../src/elpx_translator_desktop/assets/elpx-translator-desktop.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <header class="shell-header">
+    <a class="brand" href="../index.html">
+      <img src="../src/elpx_translator_desktop/assets/elpx-translator-desktop.svg" alt="">
+      <span>ELPX Translator web</span>
+    </a>
+    <nav class="header-links">
+      <a href="../index.html">Página principal</a>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer">Incidencias</a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="hero-card">
+      <div>
+        <p class="eyebrow">Versión web</p>
+        <h1>ELPX Translator web</h1>
+        <p class="lead">
+          Traduce archivos .elpx desde el navegador.
+        </p>
+        <p class="lead">
+          Si no dispones de clave API o prefieres trabajar en local, usa la
+          <a href="../index.html#descargas">versión de escritorio</a>.
+        </p>
+      </div>
+      <div class="hero-note">
+        <h2>Qué hace esta versión</h2>
+        <ul>
+          <li>Traduce archivos .elpx.</li>
+          <li>Genera un nuevo archivo traducido para descargar.</li>
+          <li>Necesita tu propia clave API para funcionar.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <form id="translator-form" class="panel controls">
+        <div class="panel-heading">
+          <h2>API y modelo</h2>
+          <p>La clave API se guarda en este navegador para que no tengas que escribirla cada vez.</p>
+        </div>
+
+        <div class="grid two">
+          <label class="field">
+            <span>Servicio API</span>
+            <select id="provider" required></select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Clave API</span>
+          <div class="field-inline">
+            <input id="api-key" type="password" autocomplete="off" spellcheck="false" required>
+            <button id="clear-api-key-button" class="button button-secondary button-inline" type="button">Borrar clave</button>
+          </div>
+        </label>
+
+        <label class="field">
+          <span>Modelo</span>
+          <div class="field-inline">
+            <select id="model" required></select>
+            <button id="load-models-button" class="button button-secondary button-inline" type="button">Cargar modelos</button>
+          </div>
+        </label>
+
+        <div class="help-box">
+          <p>Privacidad:</p>
+          <ul>
+            <li>El archivo se abre localmente en el navegador.</li>
+            <li>El texto se envía al servicio API que elijas para hacer la traducción.</li>
+            <li>No hay un servidor propio intermedio.</li>
+          </ul>
+        </div>
+
+        <div class="help-box">
+          <p>¿No tienes API?</p>
+          <ul>
+            <li>La versión web necesita una clave API de un proveedor externo.</li>
+            <li>Si no dispones de ella, usa la versión de escritorio con procesamiento local.</li>
+            <li><a href="../index.html">Ir a la página principal</a> para ver información y descargas.</li>
+          </ul>
+        </div>
+
+      </form>
+
+      <section class="panel output">
+        <div class="panel-heading">
+          <h2>Archivo e idiomas</h2>
+          <p>Elige el archivo y los idiomas antes de traducir.</p>
+        </div>
+
+        <label class="field">
+          <span>Archivo .elpx</span>
+          <input id="input-file" type="file" accept=".elpx,application/zip" required form="translator-form">
+        </label>
+
+        <div class="grid two">
+          <label class="field">
+            <span>Idioma de origen</span>
+            <select id="source-language" required form="translator-form"></select>
+          </label>
+          <label class="field">
+            <span>Idioma de destino</span>
+            <select id="target-language" required form="translator-form"></select>
+          </label>
+        </div>
+
+        <label id="custom-target-field" class="field hidden">
+          <span>Código de idioma</span>
+          <input id="custom-target-language" type="text" placeholder="sv, ja, pt-BR, zh-CN" spellcheck="false" form="translator-form">
+        </label>
+
+        <div class="actions actions-side">
+          <button id="translate-button" class="button button-primary" type="submit" form="translator-form">Traducir archivo</button>
+          <button id="reset-button" class="button button-secondary" type="button">Limpiar</button>
+        </div>
+
+        <div class="panel-heading panel-heading-status">
+          <h2>Estado</h2>
+          <p>Aquí verás cómo avanza la traducción.</p>
+        </div>
+
+        <div class="status-stack">
+          <div id="status-badge" class="status-badge">Listo para empezar</div>
+          <progress id="progress" max="100" value="0"></progress>
+          <p id="status-text" class="status-text">Selecciona un archivo, configura el proveedor y lanza la traducción.</p>
+          <p id="status-detail" class="status-detail"></p>
+        </div>
+
+        <div id="result-card" class="result-card hidden">
+          <h3>Resultado</h3>
+          <p id="result-text"></p>
+          <a id="download-link" class="button button-primary" download>Descargar archivo traducido</a>
+        </div>
+
+        <div class="tips">
+          <h3>Ten en cuenta</h3>
+          <ul>
+            <li>La versión web no sustituye a la versión de escritorio.</li>
+            <li>Necesitas tu propia clave API.</li>
+            <li>Conviene revisar el archivo traducido antes de publicarlo.</li>
+          </ul>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import re
 from dataclasses import dataclass
@@ -272,8 +273,8 @@ def _is_supported_gemini_model(model: dict) -> bool:
     name = model.get('name', '')
     if not isinstance(name, str) or not name.startswith('models/gemini'):
         return False
-    generation_methods = model.get('supportedGenerationMethods', [])
-    if 'generateContent' not in generation_methods:
+    generation_methods = model.get('supportedGenerationMethods')
+    if isinstance(generation_methods, list) and 'generateContent' not in generation_methods:
         return False
 
     lowered = name.lower()
@@ -345,7 +346,6 @@ def _chat_completion(
         headers=headers,
         body={
             'model': model_id,
-            'temperature': 0,
             'messages': [
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': user_prompt},
@@ -383,7 +383,6 @@ def _anthropic_message_completion(
         body={
             'model': model_id,
             'max_tokens': 8192,
-            'temperature': 0,
             'system': system_prompt,
             'messages': [
                 {'role': 'user', 'content': user_prompt},

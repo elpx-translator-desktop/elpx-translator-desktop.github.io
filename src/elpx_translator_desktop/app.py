@@ -889,12 +889,13 @@ class MainWindow(QMainWindow):
         self.translate_button = QPushButton('')
         self.translate_button.setObjectName('primaryButton')
         self.translate_button.clicked.connect(self._start_translation)
-        controls_layout.addWidget(self.translate_button, 5, 3)
+        controls_layout.addWidget(self.translate_button, 5, 2)
 
         self.stop_button = QPushButton('')
         self.stop_button.clicked.connect(self._cancel_translation)
         self.stop_button.setEnabled(False)
-        controls_layout.addWidget(self.stop_button, 5, 2)
+        self.stop_button.setVisible(False)
+        controls_layout.addWidget(self.stop_button, 5, 3)
 
         controls_layout.setColumnStretch(0, 1)
         controls_layout.setColumnStretch(1, 1)
@@ -1229,6 +1230,7 @@ class MainWindow(QMainWindow):
     def _set_running(self, running: bool) -> None:
         self.running = running
         self.translate_button.setEnabled(not running)
+        self.stop_button.setVisible(running)
         self.stop_button.setEnabled(running and not self.cancel_requested)
 
     def _reset_run_state(self) -> None:
@@ -1381,35 +1383,53 @@ class MainWindow(QMainWindow):
         if dialog.exec() != QDialog.Accepted:
             return
 
-        self.ui_language = dialog.selected_ui_language()
-        self.performance_mode = dialog.selected_performance_mode()
-        self.receive_beta_updates = dialog.selected_receive_beta_updates()
-        self.translation_provider = dialog.selected_translation_provider()
-        self.provider_api_keys = dialog.selected_api_keys()
-        self.provider_models = dialog.selected_models()
-        self.settings.setValue('ui_language', self.ui_language)
-        self.settings.setValue('performance_mode', self.performance_mode)
-        self.settings.setValue('receive_beta_updates', self.receive_beta_updates)
-        self.settings.setValue('translation_provider', self.translation_provider)
-        for provider, api_key in self.provider_api_keys.items():
-            self.settings.setValue(f'api_key_{provider}', api_key)
-        for provider, model_id in self.provider_models.items():
-            self.settings.setValue(f'model_{provider}', model_id)
-        self.latest_version = None
-        self.latest_version_url = None
-        self._apply_ui_texts()
-        self._rebuild_language_combos(
-            self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE,
-            self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE,
-        )
-        self._refresh_settings_summary()
-        self._restart_update_check()
-        if self.running:
-            self._append_log(
-                ProgressEvent(
-                    tr(self.ui_language, 'settings_applied_next_run'),
-                ),
+        previous_receive_beta_updates = self.receive_beta_updates
+        try:
+            _append_runtime_log('Settings accept: reading dialog values')
+            self.ui_language = dialog.selected_ui_language()
+            self.performance_mode = dialog.selected_performance_mode()
+            self.receive_beta_updates = dialog.selected_receive_beta_updates()
+            self.translation_provider = dialog.selected_translation_provider()
+            self.provider_api_keys = dialog.selected_api_keys()
+            self.provider_models = dialog.selected_models()
+
+            _append_runtime_log('Settings accept: writing QSettings values')
+            self.settings.setValue('ui_language', self.ui_language)
+            self.settings.setValue('performance_mode', self.performance_mode)
+            self.settings.setValue('receive_beta_updates', self.receive_beta_updates)
+            self.settings.setValue('translation_provider', self.translation_provider)
+            for provider, api_key in self.provider_api_keys.items():
+                self.settings.setValue(f'api_key_{provider}', api_key)
+            for provider, model_id in self.provider_models.items():
+                self.settings.setValue(f'model_{provider}', model_id)
+            self.settings.sync()
+
+            _append_runtime_log('Settings accept: refreshing main window UI')
+            self.latest_version = None
+            self.latest_version_url = None
+            self._apply_ui_texts()
+            self._rebuild_language_combos(
+                self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE,
+                self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE,
             )
+            self._refresh_settings_summary()
+
+            if self.receive_beta_updates != previous_receive_beta_updates:
+                _append_runtime_log('Settings accept: restarting update check')
+                self._restart_update_check()
+            else:
+                _append_runtime_log('Settings accept: update check unchanged')
+
+            if self.running:
+                self._append_log(
+                    ProgressEvent(
+                        tr(self.ui_language, 'settings_applied_next_run'),
+                    ),
+                )
+            _append_runtime_log('Settings accept: completed')
+        except Exception as error:  # noqa: BLE001
+            _append_runtime_log(f'Settings accept failed: {error}')
+            self._show_error(f'Error aplicando ajustes: {error}')
 
     def _apply_detected_source_language(self, input_path: Path) -> None:
         try:

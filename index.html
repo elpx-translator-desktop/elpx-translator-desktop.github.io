@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ELPX Translator Desktop</title>
-  <meta name="description" content="Aplicación de escritorio para traducir archivos .elpx de forma local, pensada para profesorado y usuarios no técnicos.">
+  <title>ELPX Translator</title>
+  <meta name="description" content="Herramienta para traducir archivos .elpx en versión de escritorio y versión web.">
   <link rel="icon" href="src/elpx_translator_desktop/assets/elpx-translator-desktop.svg" type="image/svg+xml">
   <link rel="stylesheet" href="docs/site.css">
 </head>
@@ -13,10 +13,11 @@
     <nav class="topbar">
       <div class="brand">
         <img src="src/elpx_translator_desktop/assets/elpx-translator-desktop.svg" alt="" class="brand-icon">
-        <span>ELPX Translator Desktop</span>
+        <span>ELPX Translator</span>
       </div>
       <div class="top-links">
         <a href="#descargas" data-i18n="nav_downloads">Descargas</a>
+        <a href="app/">Versión web</a>
         <a href="#capturas" data-i18n="nav_screenshots">Capturas</a>
         <a href="#privacidad" data-i18n="nav_privacy">Privacidad</a>
         <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="nav_issues">Sugerencias y errores</a>
@@ -36,23 +37,24 @@
     <section class="hero-body">
       <div class="hero-copy">
         <p class="eyebrow" data-i18n="hero_eyebrow">Para profesorado y personas no técnicas</p>
-        <h1>ELPX Translator Desktop</h1>
+        <h1>ELPX Translator</h1>
         <p class="lead" data-i18n="hero_lead">
-          ELPX Translator Desktop sirve para traducir proyectos de eXeLearning sin depender de servicios externos.
-          Está pensado para ahorrar tiempo al adaptar materiales ya creados a otro idioma.
+          ELPX Translator sirve para traducir proyectos de eXeLearning.
+          Puedes elegir entre la versión de escritorio y la versión web.
         </p>
         <div class="hero-actions">
-          <a class="button button-primary" href="#descargas" data-i18n="hero_cta_downloads">Ver descargas</a>
+          <a class="button button-primary" href="#descargas">Versión de escritorio</a>
+          <a class="button button-secondary" href="app/">Versión web</a>
           <a class="button button-secondary" href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="hero_cta_issues">Informar de una sugerencia o problema</a>
         </div>
         <ul class="hero-points">
-          <li data-i18n="hero_point_1">Funciona en Linux, Windows y macOS.</li>
-          <li data-i18n="hero_point_2">Procesa el contenido del archivo en tu equipo.</li>
-          <li data-i18n="hero_point_3">Interfaz sencilla, pensada para profesorado y personas no técnicas.</li>
+          <li>Versión de escritorio para trabajar en local.</li>
+          <li>Versión web para usarla desde el navegador.</li>
+          <li>Interfaz sencilla, pensada para profesorado y personas no técnicas.</li>
         </ul>
       </div>
       <div class="hero-shot">
-        <img src="docs/assets/screenshots/main-window.png" alt="Ventana principal de ELPX Translator Desktop" data-i18n-attr="alt:hero_image_alt">
+        <img src="docs/assets/screenshots/main-window.png" alt="Ventana principal de ELPX Translator" data-i18n-attr="alt:hero_image_alt">
       </div>
     </section>
   </header>
@@ -82,8 +84,8 @@
     <section id="descargas" class="section section-alt">
       <div class="section-header">
         <p class="eyebrow" data-i18n="downloads_eyebrow">Descargas</p>
-        <h2 data-i18n="downloads_title">Versiones disponibles</h2>
-        <p data-i18n="downloads_body" data-i18n-mode="html">La página consulta GitHub Releases y muestra la última beta publicada. En Linux verás tanto el paquete <code>.deb</code> como la <code>AppImage</code>. Cuando haya una versión estable realmente lista, también aparecerá aquí.</p>
+        <h2>Versión de escritorio</h2>
+        <p data-i18n="downloads_body" data-i18n-mode="html">La página consulta GitHub Releases y muestra la última versión estable disponible y, si existe, la beta más reciente. En Linux verás tanto el paquete <code>.deb</code> como la <code>AppImage</code>.</p>
         <p data-i18n="downloads_beta_updates_note">Si quieres recibir avisos de versiones beta dentro del programa, activa esa opción en la configuración. Por defecto está desactivada.</p>
       </div>
 
@@ -104,6 +106,26 @@
           </div>
           <p class="release-copy" data-release-copy="beta" data-i18n="release_beta_copy">Si quieres probar antes los cambios más recientes y ayudarnos a detectar fallos.</p>
           <div class="download-links"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <p class="eyebrow">Dos versiones</p>
+        <h2>Escritorio o web, según lo que necesites</h2>
+        <p>ELPX Translator tiene una versión de escritorio y una versión web. La diferencia principal es cómo traduce cada una.</p>
+      </div>
+      <div class="grid two">
+        <article class="card">
+          <h3>Versión de escritorio</h3>
+          <p>Recomendada si quieres trabajar en local y no dependes de una clave API.</p>
+          <p><a class="button button-primary" href="#descargas">Ver descargas</a></p>
+        </article>
+        <article class="card">
+          <h3>Versión web</h3>
+          <p>Útil si quieres traducir desde el navegador y dispones de tu propia clave API.</p>
+          <p><a class="button button-primary" href="app/">Abrir versión web</a></p>
         </article>
       </div>
     </section>
@@ -273,7 +295,7 @@
   </main>
 
   <footer class="footer">
-    <p data-i18n="footer_body" data-i18n-mode="html">ELPX Translator Desktop es un proyecto independiente para traducir archivos <code>.elpx</code>.</p>
+    <p data-i18n="footer_body" data-i18n-mode="html">ELPX Translator es un proyecto independiente para traducir archivos <code>.elpx</code>.</p>
     <p class="footer-meta" data-i18n="footer_author" data-i18n-mode="html">Creado por <strong>Juan José de Haro</strong>.</p>
     <p class="footer-meta" data-i18n="footer_license" data-i18n-mode="html">Software libre distribuido bajo licencia <strong>GNU AGPLv3 o posterior</strong>.</p>
     <p>

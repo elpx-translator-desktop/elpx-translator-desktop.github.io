@@ -1,16 +1,17 @@
-# ELPX Translator Desktop
+# ELPX Translator
 
-Aplicacion de escritorio multiplataforma para traducir proyectos `.elpx`.
+Herramienta para traducir proyectos `.elpx` con version de escritorio y version web.
 
-Por defecto trabaja en local, en tu propio equipo. Como opcion de prueba, tambien puede usar tu propia clave API de OpenAI o Gemini para traducir con un proveedor externo.
+La version de escritorio trabaja en local, en tu propio equipo. La version web funciona en el navegador y usa la clave API del propio usuario.
 
 Objetivos:
 
 - Linux, Windows y macOS
 - procesamiento local por defecto
+- version web sin backend propio
 - modo opcional por API con clave propia del usuario
 - misma estructura `.elpx`
-- mejor rendimiento que la version web en navegador
+- reconstruccion conservadora del `.elpx`
 
 ## Stack
 
@@ -27,6 +28,14 @@ source .venv/bin/activate
 pip install -e .
 python3 -m elpx_translator_desktop
 ```
+
+## Version web
+
+El repo incluye una app web en `app/`, pensada para publicarse en GitHub Pages sin backend propio.
+
+- La web informativa principal sigue en `index.html` y `docs/`.
+- La version web abre el `.elpx` en navegador, traduce usando la API del usuario y reconstruye el archivo.
+- No sustituye al modo local de escritorio: es una ruta web separada para quien prefiera trabajar desde el navegador.
 
 ## Empaquetado
 
@@ -68,7 +77,7 @@ Notas:
 
 ## Modo API opcional
 
-La app sigue siendo local por defecto. El modo por API es opcional y esta pensado como funcion de prueba para usuarios que quieran usar su propia cuenta de proveedor.
+La app de escritorio sigue siendo local por defecto. El modo por API es opcional y esta pensado para usuarios que quieran usar su propia cuenta de proveedor.
 
 - Proveedores disponibles: `OpenAI API`, `Gemini API`, `Anthropic API` y `DeepSeek API`.
 - La clave API la aporta el propio usuario.
@@ -83,8 +92,8 @@ Obtener claves API:
 - Anthropic: `https://console.anthropic.com/settings/keys`
 - DeepSeek: `https://platform.deepseek.com/api_keys`
 
-Notas importantes sobre esta beta:
+Notas importantes:
 
 - La clave API se guarda localmente en la configuracion del programa en texto plano.
 - Puedes borrar la clave guardada desde `Configuracion`.
-- El comportamiento actual de la web del proyecto no refleja todavia este modo opcional; se documenta aqui y en la propia app mientras siga en beta.
+- La version web usa la clave API guardada en el navegador y mantiene claves separadas por proveedor.
