@@ -246,6 +246,11 @@ input[type="file"]::file-selector-button:hover {
   margin-top: 0;
 }
 
+.help-box + .help-box,
+.result-card + .tips {
+  margin-top: 18px;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

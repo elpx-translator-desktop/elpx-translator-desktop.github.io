@@ -43,8 +43,14 @@
           Puedes elegir entre la versión de escritorio y la versión web.
         </p>
         <div class="hero-actions">
-          <a class="button button-primary" href="#descargas">Versión de escritorio</a>
-          <a class="button button-secondary" href="app/">Versión web</a>
+          <a class="button button-primary button-rich" href="#descargas">
+            <span class="button-label" data-i18n="hero_desktop_button_label">Versión de escritorio</span>
+            <span class="button-note" data-i18n="hero_desktop_button_note">Traducción local o con tu propia API</span>
+          </a>
+          <a class="button button-secondary button-rich" href="app/">
+            <span class="button-label" data-i18n="hero_web_button_label">Versión web</span>
+            <span class="button-note" data-i18n="hero_web_button_note">Traducción con tu propia API</span>
+          </a>
           <a class="button button-secondary" href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="hero_cta_issues">Informar de una sugerencia o problema</a>
         </div>
         <ul class="hero-points">
@@ -81,6 +87,26 @@
       </div>
     </section>
 
+    <section class="section">
+      <div class="section-header">
+        <p class="eyebrow">Dos versiones</p>
+        <h2>Escritorio o web, según lo que necesites</h2>
+        <p>ELPX Translator tiene una versión de escritorio y una versión web. La diferencia principal es cómo traduce cada una.</p>
+      </div>
+      <div class="grid two">
+        <article class="card">
+          <h3>Versión de escritorio</h3>
+          <p>Recomendada si quieres trabajar en local y no dependes de una clave API.</p>
+          <p><a class="button button-primary" href="#descargas">Ver descargas</a></p>
+        </article>
+        <article class="card">
+          <h3>Versión web</h3>
+          <p>Útil si quieres traducir desde el navegador y dispones de tu propia clave API.</p>
+          <p><a class="button button-primary" href="app/">Abrir versión web</a></p>
+        </article>
+      </div>
+    </section>
+
     <section id="descargas" class="section section-alt">
       <div class="section-header">
         <p class="eyebrow" data-i18n="downloads_eyebrow">Descargas</p>
@@ -106,26 +132,6 @@
           </div>
           <p class="release-copy" data-release-copy="beta" data-i18n="release_beta_copy">Si quieres probar antes los cambios más recientes y ayudarnos a detectar fallos.</p>
           <div class="download-links"></div>
-        </article>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-header">
-        <p class="eyebrow">Dos versiones</p>
-        <h2>Escritorio o web, según lo que necesites</h2>
-        <p>ELPX Translator tiene una versión de escritorio y una versión web. La diferencia principal es cómo traduce cada una.</p>
-      </div>
-      <div class="grid two">
-        <article class="card">
-          <h3>Versión de escritorio</h3>
-          <p>Recomendada si quieres trabajar en local y no dependes de una clave API.</p>
-          <p><a class="button button-primary" href="#descargas">Ver descargas</a></p>
-        </article>
-        <article class="card">
-          <h3>Versión web</h3>
-          <p>Útil si quieres traducir desde el navegador y dispones de tu propia clave API.</p>
-          <p><a class="button button-primary" href="app/">Abrir versión web</a></p>
         </article>
       </div>
     </section>
@@ -211,8 +217,8 @@
           <figcaption data-i18n="screenshot_1_caption">Pantalla principal: archivo de entrada, idioma de origen, idioma de destino y progreso.</figcaption>
         </figure>
         <figure class="shot-card">
-          <img src="docs/assets/screenshots/about-window.png" alt="Ventana con información de la aplicación" data-i18n-attr="alt:screenshot_2_alt">
-          <figcaption data-i18n="screenshot_2_caption">La propia aplicación incluye información sobre el proyecto y acceso a soporte.</figcaption>
+          <img src="docs/assets/screenshots/settings-window.png" alt="Ventana de configuración de la aplicación" data-i18n-attr="alt:screenshot_2_alt">
+          <figcaption data-i18n="screenshot_2_caption">La configuración permite elegir el modo de traducción, el idioma de la interfaz y los ajustes del modo API.</figcaption>
         </figure>
       </div>
     </section>

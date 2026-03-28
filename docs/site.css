@@ -172,6 +172,25 @@ h3 {
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
+.button-rich {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 20px;
+  line-height: 1.1;
+}
+
+.button-label {
+  display: block;
+}
+
+.button-note {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.88;
+}
+
 .button:hover {
   transform: translateY(-1px);
 }
@@ -179,6 +198,13 @@ h3 {
 .button-primary {
   background: linear-gradient(135deg, var(--brand-dark), var(--brand));
   color: white;
+  box-shadow: var(--shadow);
+}
+
+.hero-actions .button-rich.button-secondary {
+  background: linear-gradient(135deg, var(--brand-dark), var(--brand));
+  color: white;
+  border: none;
   box-shadow: var(--shadow);
 }
 

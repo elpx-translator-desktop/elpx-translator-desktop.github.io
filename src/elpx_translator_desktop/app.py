@@ -162,9 +162,6 @@ class SettingsDialog(QDialog):
         )
         content_layout.addWidget(interface_card)
 
-        language_title = QLabel(tr(ui_language, 'settings_interface_language'))
-        language_title.setProperty('fieldLabel', True)
-        interface_layout.addWidget(language_title)
         self.ui_language_combo = QComboBox()
         for code, label in UI_LANGUAGE_OPTIONS:
             self.ui_language_combo.addItem(label, code)
@@ -177,10 +174,6 @@ class SettingsDialog(QDialog):
             tr(ui_language, 'settings_updates_section'),
         )
         content_layout.addWidget(updates_card)
-
-        updates_title = QLabel(tr(ui_language, 'settings_updates'))
-        updates_title.setProperty('fieldLabel', True)
-        updates_layout.addWidget(updates_title)
 
         self.receive_beta_updates_checkbox = QCheckBox(tr(ui_language, 'settings_receive_beta_updates'))
         self.receive_beta_updates_checkbox.setChecked(receive_beta_updates)
@@ -211,7 +204,7 @@ class SettingsDialog(QDialog):
 
         self.performance_section = QWidget()
         performance_layout = QVBoxLayout(self.performance_section)
-        performance_layout.setContentsMargins(0, 0, 0, 0)
+        performance_layout.setContentsMargins(6, 4, 6, 4)
         performance_layout.setSpacing(10)
 
         title = QLabel(tr(ui_language, 'settings_performance'))
@@ -240,7 +233,7 @@ class SettingsDialog(QDialog):
 
         self.remote_section = QWidget()
         remote_layout = QVBoxLayout(self.remote_section)
-        remote_layout.setContentsMargins(0, 0, 0, 0)
+        remote_layout.setContentsMargins(6, 4, 6, 4)
         remote_layout.setSpacing(10)
 
         provider_title = QLabel(tr(ui_language, 'settings_api_provider'))
@@ -343,9 +336,10 @@ class SettingsDialog(QDialog):
     def _make_settings_section(self, title: str, description: str | None = None) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
         card.setProperty('card', True)
+        card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(18, 16, 18, 16)
-        layout.setSpacing(10)
+        layout.setSpacing(8)
 
         title_label = QLabel(title)
         title_label.setObjectName('sectionTitle')
@@ -417,10 +411,11 @@ class SettingsDialog(QDialog):
             self.performance_combo.setEnabled(provider_is_local)
             self.provider_help_label.setText(tr(self.ui_language, 'settings_provider_help_remote'))
             self.api_key_edit.setEnabled(not provider_is_local)
-            self.clear_api_key_button.setEnabled(not provider_is_local)
-            self.model_combo.setEnabled(not provider_is_local)
-            self.refresh_models_button.setEnabled(not provider_is_local)
             current_api_key = self.api_keys.get(provider, '')
+            has_api_key = bool(current_api_key.strip())
+            self.clear_api_key_button.setEnabled(not provider_is_local and has_api_key)
+            self.model_combo.setEnabled(not provider_is_local and has_api_key)
+            self.refresh_models_button.setEnabled(not provider_is_local and has_api_key)
             self.api_key_edit.blockSignals(True)
             self.api_key_edit.setPlaceholderText(
                 '' if provider_is_local or current_api_key else tr(self.ui_language, 'settings_api_key_placeholder')
@@ -493,6 +488,17 @@ class SettingsDialog(QDialog):
             return
         self.api_keys[provider] = ''
         self.provider_models[provider] = ''
+        parent = self.parent()
+        if parent is not None:
+            if hasattr(parent, 'provider_api_keys'):
+                parent.provider_api_keys[provider] = ''
+            if hasattr(parent, 'provider_models'):
+                parent.provider_models[provider] = ''
+            settings = getattr(parent, 'settings', None)
+            if settings is not None:
+                settings.setValue(f'api_key_{provider}', '')
+                settings.setValue(f'model_{provider}', '')
+                settings.sync()
         self.api_key_edit.clear()
         self._populate_model_combo([])
 
@@ -515,6 +521,10 @@ class SettingsDialog(QDialog):
         provider = self.selected_translation_provider()
         provider_is_local = provider == 'local'
         current_api_key = self.api_keys.get(provider, '')
+        has_api_key = bool(current_api_key.strip())
+        self.clear_api_key_button.setEnabled(not provider_is_local and has_api_key)
+        self.model_combo.setEnabled(not provider_is_local and has_api_key)
+        self.refresh_models_button.setEnabled(not provider_is_local and has_api_key)
         if provider_is_local:
             self.api_key_status_label.setText('')
         elif current_api_key:
@@ -718,7 +728,6 @@ class MainWindow(QMainWindow):
         self.total_units = 0
         self.progress_value = 0.0
         self.running = False
-        self.last_directory = Path.home()
         self.thread: QThread | None = None
         self.worker: TranslationWorker | None = None
         self.update_thread: QThread | None = None
@@ -736,6 +745,7 @@ class MainWindow(QMainWindow):
         self.provider_models = self._load_provider_models()
         for provider, model_id in list(self.provider_models.items()):
             self.provider_models[provider] = SettingsDialog._normalized_remote_model(provider, model_id)
+        self.last_directory = self._load_last_directory()
         self.preferred_target_language = self._load_target_language()
         self.receive_beta_updates = self._load_receive_beta_updates()
         self.detected_project_language: str | None = None
@@ -985,10 +995,14 @@ class MainWindow(QMainWindow):
                 color: #16212b;
             }
             QLabel#sectionTitle {
-                color: #16212b;
-                font-size: 16px;
+                color: #175d98;
+                background: #eef5fb;
+                border: 1px solid #d7e5f2;
+                border-radius: 10px;
+                font-size: 15px;
                 font-weight: 700;
-                padding: 0 0 4px 0;
+                padding: 8px 10px;
+                margin-bottom: 2px;
             }
             QLabel#infoLabel {
                 color: #5f6b76;
@@ -1011,7 +1025,8 @@ class MainWindow(QMainWindow):
             QLabel[fieldLabel="true"] {
                 font-size: 12px;
                 font-weight: 700;
-                color: #465361;
+                color: #175d98;
+                padding-top: 2px;
             }
             QLineEdit, QComboBox {
                 background: #ffffff;
@@ -1125,6 +1140,7 @@ class MainWindow(QMainWindow):
         input_path = Path(filename)
         self.file_edit.setText(str(input_path))
         self.last_directory = input_path.parent
+        self._persist_last_directory()
         suggested_output = self._build_output_path(input_path)
         self.output_edit.setText(str(suggested_output))
         self._apply_detected_source_language(input_path)
@@ -1150,6 +1166,7 @@ class MainWindow(QMainWindow):
 
         self.output_edit.setText(filename)
         self.last_directory = Path(filename).parent
+        self._persist_last_directory()
 
     def _start_translation(self) -> None:
         if self.running:
@@ -1596,6 +1613,14 @@ class MainWindow(QMainWindow):
             return configured_value != 0
         return False
 
+    def _load_last_directory(self) -> Path:
+        configured_value = self.settings.value('last_directory', '')
+        if isinstance(configured_value, str) and configured_value.strip():
+            configured_path = Path(configured_value).expanduser()
+            if configured_path.exists() and configured_path.is_dir():
+                return configured_path
+        return Path.home()
+
     def _load_provider_api_keys(self) -> dict[str, str]:
         return {
             'openai': str(self.settings.value('api_key_openai', '') or ''),
@@ -1617,6 +1642,10 @@ class MainWindow(QMainWindow):
         if isinstance(target_language, str) and target_language.strip():
             self.preferred_target_language = target_language
             self.settings.setValue('target_language', target_language)
+
+    def _persist_last_directory(self) -> None:
+        if self.last_directory.exists() and self.last_directory.is_dir():
+            self.settings.setValue('last_directory', str(self.last_directory))
 
     def _selected_target_language(self) -> str:
         combo_value = self.target_combo.currentData()
