@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import urllib.request
 
 from PySide6.QtCore import QObject, Signal, Slot
@@ -24,6 +25,21 @@ class UpdateCheckWorker(QObject):
     def __init__(self, allow_prereleases: bool = False) -> None:
         super().__init__()
         self.allow_prereleases = allow_prereleases
+        self._thread: threading.Thread | None = None
+        self._cancelled = False
+
+    def start(self) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._cancelled = False
+        self._thread = threading.Thread(target=self.run, name='elpx-update-check', daemon=True)
+        self._thread.start()
+
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def cancel(self) -> None:
+        self._cancelled = True
 
     @Slot()
     def run(self) -> None:
@@ -40,7 +56,7 @@ class UpdateCheckWorker(QObject):
                 __version__,
                 allow_prereleases=self.allow_prereleases,
             )
-            if release:
+            if release and not self._cancelled:
                 self.update_found.emit(release['version'], release['url'])
         except Exception:
             pass

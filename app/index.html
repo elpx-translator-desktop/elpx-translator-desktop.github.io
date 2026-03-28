@@ -15,30 +15,40 @@
       <span>ELPX Translator web</span>
     </a>
     <nav class="header-links">
-      <a href="../index.html">Página principal</a>
-      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer">Incidencias</a>
+      <a href="../index.html" data-i18n="nav_home">Página principal</a>
+      <a href="https://github.com/elpx-translator-desktop/elpx-translator-desktop.github.io/issues" target="_blank" rel="noopener noreferrer" data-i18n="nav_issues">Incidencias</a>
     </nav>
+    <label class="language-picker" for="language-picker">
+      <span data-i18n="language_label">Idioma</span>
+      <select id="language-picker" aria-label="Idioma del sitio">
+        <option value="es">Español</option>
+        <option value="en">English</option>
+        <option value="ca">Català</option>
+        <option value="eu">Euskara</option>
+        <option value="gl">Galego</option>
+      </select>
+    </label>
   </header>
 
   <main class="layout">
     <section class="hero-card">
       <div>
-        <p class="eyebrow">Versión web</p>
-        <h1>ELPX Translator web</h1>
-        <p class="lead">
+        <p class="eyebrow" data-i18n="hero_eyebrow">Versión web</p>
+        <h1 data-i18n="hero_title">ELPX Translator web</h1>
+        <p class="lead" data-i18n="hero_lead">
           Traduce archivos .elpx desde el navegador.
         </p>
-        <p class="lead">
+        <p class="lead" data-i18n="hero_desktop_note" data-i18n-mode="html">
           Si no dispones de clave API o prefieres trabajar en local, usa la
           <a href="../index.html#descargas">versión de escritorio</a>.
         </p>
       </div>
       <div class="hero-note">
-        <h2>Qué hace esta versión</h2>
+        <h2 data-i18n="hero_note_title">Qué hace esta versión</h2>
         <ul>
-          <li>Traduce archivos .elpx.</li>
-          <li>Genera un nuevo archivo traducido para descargar.</li>
-          <li>Necesita tu propia clave API para funcionar.</li>
+          <li data-i18n="hero_note_1">Traduce archivos .elpx.</li>
+          <li data-i18n="hero_note_2">Genera un nuevo archivo traducido para descargar.</li>
+          <li data-i18n="hero_note_3">Necesita tu propia clave API para funcionar.</li>
         </ul>
       </div>
     </section>
@@ -46,48 +56,48 @@
     <section class="workspace">
       <form id="translator-form" class="panel controls">
         <div class="panel-heading">
-          <h2>API y modelo</h2>
-          <p>La clave API se guarda en este navegador para que no tengas que escribirla cada vez.</p>
+          <h2 data-i18n="api_panel_title">API y modelo</h2>
+          <p data-i18n="api_panel_body">La clave API se guarda en este navegador para que no tengas que escribirla cada vez.</p>
         </div>
 
         <div class="grid two">
           <label class="field">
-            <span>Servicio API</span>
+            <span data-i18n="provider_label">Servicio API</span>
             <select id="provider" required></select>
           </label>
         </div>
 
         <label class="field">
-          <span>Clave API</span>
+          <span data-i18n="api_key_label">Clave API</span>
           <div class="field-inline">
             <input id="api-key" type="password" autocomplete="off" spellcheck="false" required>
-            <button id="clear-api-key-button" class="button button-secondary button-inline" type="button">Borrar clave</button>
+            <button id="clear-api-key-button" class="button button-secondary button-inline" type="button" data-i18n="clear_api_key_button">Borrar clave</button>
           </div>
         </label>
 
         <label class="field">
-          <span>Modelo</span>
+          <span data-i18n="model_label">Modelo</span>
           <div class="field-inline">
             <select id="model" required></select>
-            <button id="load-models-button" class="button button-secondary button-inline" type="button">Cargar modelos</button>
+            <button id="load-models-button" class="button button-secondary button-inline" type="button" data-i18n="load_models_button">Cargar modelos</button>
           </div>
         </label>
 
         <div class="help-box">
-          <p>Privacidad:</p>
+          <p data-i18n="privacy_title">Privacidad:</p>
           <ul>
-            <li>El archivo se abre localmente en el navegador.</li>
-            <li>El texto se envía al servicio API que elijas para hacer la traducción.</li>
-            <li>No hay un servidor propio intermedio.</li>
+            <li data-i18n="privacy_1">El archivo se abre localmente en el navegador.</li>
+            <li data-i18n="privacy_2">El texto se envía al servicio API que elijas para hacer la traducción.</li>
+            <li data-i18n="privacy_3">No hay un servidor propio intermedio.</li>
           </ul>
         </div>
 
         <div class="help-box">
-          <p>¿No tienes API?</p>
+          <p data-i18n="no_api_title">¿No tienes API?</p>
           <ul>
-            <li>La versión web necesita una clave API de un proveedor externo.</li>
-            <li>Si no dispones de ella, usa la versión de escritorio con procesamiento local.</li>
-            <li><a href="../index.html">Ir a la página principal</a> para ver información y descargas.</li>
+            <li data-i18n="no_api_1">La versión web necesita una clave API de un proveedor externo.</li>
+            <li data-i18n="no_api_2">Si no dispones de ella, usa la versión de escritorio con procesamiento local.</li>
+            <li data-i18n="no_api_3" data-i18n-mode="html"><a href="../index.html">Ir a la página principal</a> para ver información y descargas.</li>
           </ul>
         </div>
 
@@ -95,60 +105,60 @@
 
       <section class="panel output">
         <div class="panel-heading">
-          <h2>Archivo e idiomas</h2>
-          <p>Elige el archivo y los idiomas antes de traducir.</p>
+          <h2 data-i18n="file_panel_title">Archivo e idiomas</h2>
+          <p data-i18n="file_panel_body">Elige el archivo y los idiomas antes de traducir.</p>
         </div>
 
         <label class="field">
-          <span>Archivo .elpx</span>
+          <span data-i18n="file_label">Archivo .elpx</span>
           <input id="input-file" type="file" accept=".elpx,application/zip" required form="translator-form">
         </label>
 
         <div class="grid two">
           <label class="field">
-            <span>Idioma de origen</span>
+            <span data-i18n="source_language_label">Idioma de origen</span>
             <select id="source-language" required form="translator-form"></select>
           </label>
           <label class="field">
-            <span>Idioma de destino</span>
+            <span data-i18n="target_language_label">Idioma de destino</span>
             <select id="target-language" required form="translator-form"></select>
           </label>
         </div>
 
         <label id="custom-target-field" class="field hidden">
-          <span>Código de idioma</span>
-          <input id="custom-target-language" type="text" placeholder="sv, ja, pt-BR, zh-CN" spellcheck="false" form="translator-form">
+          <span data-i18n="custom_target_label">Código de idioma</span>
+          <input id="custom-target-language" type="text" placeholder="sv, ja, pt-BR, zh-CN" spellcheck="false" form="translator-form" data-i18n-attr="placeholder:custom_target_placeholder">
         </label>
 
         <div class="actions actions-side">
-          <button id="translate-button" class="button button-primary" type="submit" form="translator-form">Traducir archivo</button>
-          <button id="reset-button" class="button button-secondary" type="button">Limpiar</button>
+          <button id="translate-button" class="button button-primary" type="submit" form="translator-form" data-i18n="translate_button">Traducir archivo</button>
+          <button id="reset-button" class="button button-secondary" type="button" data-i18n="reset_button">Limpiar</button>
         </div>
 
         <div class="panel-heading panel-heading-status">
-          <h2>Estado</h2>
-          <p>Aquí verás cómo avanza la traducción.</p>
+          <h2 data-i18n="status_title">Estado</h2>
+          <p data-i18n="status_body">Aquí verás cómo avanza la traducción.</p>
         </div>
 
         <div class="status-stack">
-          <div id="status-badge" class="status-badge">Listo para empezar</div>
+          <div id="status-badge" class="status-badge" data-i18n="status_idle_badge">Listo para empezar</div>
           <progress id="progress" max="100" value="0"></progress>
-          <p id="status-text" class="status-text">Selecciona un archivo, configura el proveedor y lanza la traducción.</p>
+          <p id="status-text" class="status-text" data-i18n="status_idle_text">Selecciona un archivo, configura el proveedor y lanza la traducción.</p>
           <p id="status-detail" class="status-detail"></p>
         </div>
 
         <div id="result-card" class="result-card hidden">
-          <h3>Resultado</h3>
+          <h3 data-i18n="result_title">Resultado</h3>
           <p id="result-text"></p>
-          <a id="download-link" class="button button-primary" download>Descargar archivo traducido</a>
+          <a id="download-link" class="button button-primary" download data-i18n="download_button">Descargar archivo traducido</a>
         </div>
 
         <div class="tips">
-          <h3>Ten en cuenta</h3>
+          <h3 data-i18n="tips_title">Ten en cuenta</h3>
           <ul>
-            <li>La versión web no sustituye a la versión de escritorio.</li>
-            <li>Necesitas tu propia clave API.</li>
-            <li>Conviene revisar el archivo traducido antes de publicarlo.</li>
+            <li data-i18n="tips_1">La versión web no sustituye a la versión de escritorio.</li>
+            <li data-i18n="tips_2">Necesitas tu propia clave API.</li>
+            <li data-i18n="tips_3">Conviene revisar el archivo traducido antes de publicarlo.</li>
           </ul>
         </div>
       </section>

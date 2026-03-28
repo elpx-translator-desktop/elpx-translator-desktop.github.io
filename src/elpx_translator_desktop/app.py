@@ -7,7 +7,7 @@ import time
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, QSettings, QTimer, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -730,8 +730,9 @@ class MainWindow(QMainWindow):
         self.running = False
         self.thread: QThread | None = None
         self.worker: TranslationWorker | None = None
-        self.update_thread: QThread | None = None
         self.update_worker: UpdateCheckWorker | None = None
+        self.update_check_pending = False
+        self.closing = False
         self.log_entries: list[str] = []
         self.transient_message = ''
         self.cancel_requested = False
@@ -1769,33 +1770,36 @@ class MainWindow(QMainWindow):
         self.update_banner.show()
 
     def _start_update_check(self) -> None:
-        self.update_thread = QThread(self)
+        if self.closing:
+            return
+        if self.update_worker is not None and self.update_worker.is_running():
+            return
         self.update_worker = UpdateCheckWorker(allow_prereleases=self.receive_beta_updates)
-        self.update_worker.moveToThread(self.update_thread)
-        self.update_thread.started.connect(self.update_worker.run)
         self.update_worker.update_found.connect(self._handle_update_found)
-        self.update_worker.finished.connect(self.update_thread.quit)
-        self.update_worker.finished.connect(self.update_worker.deleteLater)
-        self.update_thread.finished.connect(self._clear_update_thread)
-        self.update_thread.finished.connect(self.update_thread.deleteLater)
-        self.update_thread.start()
+        self.update_worker.finished.connect(self._clear_update_thread)
+        self.update_worker.start()
 
     def _restart_update_check(self) -> None:
-        if self.update_thread is not None and self.update_thread.isRunning():
-            self.update_thread.quit()
-            self.update_thread.wait(2000)
+        if self.update_worker is not None and self.update_worker.is_running():
+            self.update_check_pending = True
+            self.update_worker.cancel()
+            return
         self._start_update_check()
 
     @Slot(str, str)
     def _handle_update_found(self, version: str, url: str) -> None:
+        if self.closing:
+            return
         self.latest_version = version
         self.latest_version_url = url
         self._refresh_update_banner()
 
     @Slot()
     def _clear_update_thread(self) -> None:
-        self.update_thread = None
         self.update_worker = None
+        if self.update_check_pending and not self.closing:
+            self.update_check_pending = False
+            self._start_update_check()
 
     def _open_about_dialog(self) -> None:
         dialog = AboutDialog(self.ui_language, self)
@@ -1809,9 +1813,10 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def closeEvent(self, event) -> None:  # noqa: N802
-        if self.update_thread is not None and self.update_thread.isRunning():
-            self.update_thread.quit()
-            self.update_thread.wait(2000)
+        self.closing = True
+        self.update_check_pending = False
+        if self.update_worker is not None:
+            self.update_worker.cancel()
         super().closeEvent(event)
 
     def _header_icon(self, theme_name: str, fallback: QStyle.StandardPixmap) -> QIcon:

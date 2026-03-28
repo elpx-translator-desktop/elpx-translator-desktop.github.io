@@ -45,6 +45,401 @@ const PROVIDERS = {
   },
 };
 
+const UI_LANGUAGE_STORAGE_KEY = 'elpx-translator-site-language';
+const UI_SUPPORTED_LANGUAGES = ['es', 'en', 'ca', 'eu', 'gl'];
+const APP_I18N = {
+  es: {
+    meta_description: 'Versión web para traducir archivos .elpx desde el navegador usando tu propia API.',
+    language_label: 'Idioma',
+    nav_home: 'Página principal',
+    nav_issues: 'Incidencias',
+    hero_eyebrow: 'Versión web',
+    hero_title: 'ELPX Translator web',
+    hero_lead: 'Traduce archivos .elpx desde el navegador.',
+    hero_desktop_note: 'Si no dispones de clave API o prefieres trabajar en local, usa la <a href="../index.html#descargas">versión de escritorio</a>.',
+    hero_note_title: 'Qué hace esta versión',
+    hero_note_1: 'Traduce archivos .elpx.',
+    hero_note_2: 'Genera un nuevo archivo traducido para descargar.',
+    hero_note_3: 'Necesita tu propia clave API para funcionar.',
+    api_panel_title: 'API y modelo',
+    api_panel_body: 'La clave API se guarda en este navegador para que no tengas que escribirla cada vez.',
+    provider_label: 'Servicio API',
+    api_key_label: 'Clave API',
+    clear_api_key_button: 'Borrar clave',
+    model_label: 'Modelo',
+    load_models_button: 'Cargar modelos',
+    privacy_title: 'Privacidad:',
+    privacy_1: 'El archivo se abre localmente en el navegador.',
+    privacy_2: 'El texto se envía al servicio API que elijas para hacer la traducción.',
+    privacy_3: 'No hay un servidor propio intermedio.',
+    no_api_title: '¿No tienes API?',
+    no_api_1: 'La versión web necesita una clave API de un proveedor externo.',
+    no_api_2: 'Si no dispones de ella, usa la versión de escritorio con procesamiento local.',
+    no_api_3: '<a href="../index.html">Ir a la página principal</a> para ver información y descargas.',
+    file_panel_title: 'Archivo e idiomas',
+    file_panel_body: 'Elige el archivo y los idiomas antes de traducir.',
+    file_label: 'Archivo .elpx',
+    source_language_label: 'Idioma de origen',
+    target_language_label: 'Idioma de destino',
+    custom_target_label: 'Código de idioma',
+    custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
+    translate_button: 'Traducir archivo',
+    reset_button: 'Limpiar',
+    status_title: 'Estado',
+    status_body: 'Aquí verás cómo avanza la traducción.',
+    status_idle_badge: 'Listo para empezar',
+    status_idle_text: 'Selecciona un archivo, configura el proveedor y lanza la traducción.',
+    status_running_badge: 'En proceso',
+    status_error_badge: 'Error',
+    status_done_badge: 'Completado',
+    result_title: 'Resultado',
+    result_file_generated: 'Archivo generado: {filename}',
+    download_button: 'Descargar archivo traducido',
+    tips_title: 'Ten en cuenta',
+    tips_1: 'La versión web no sustituye a la versión de escritorio.',
+    tips_2: 'Necesitas tu propia clave API.',
+    tips_3: 'Conviene revisar el archivo traducido antes de publicarlo.',
+    custom_target_option: 'Otro código de idioma',
+    no_pending_text: 'No hay texto pendiente de traducir.',
+    preparing_batches: 'Preparando lotes...',
+    sending_unique_blocks: 'Enviando {count} bloques únicos al proveedor remoto.',
+    translating_blocks: 'Traduciendo bloques {completed} de {total}.',
+    batch_completed: 'Lote {batch} completado.',
+    invalid_remote_response: 'La respuesta remota no devolvió una lista de traducciones válida.',
+    unsupported_provider: 'Proveedor no soportado: {provider}',
+    content_xml_missing: 'No se encontró content.xml dentro del archivo .elpx.',
+    xml_parse_error: 'No se pudo analizar content.xml.',
+    write_api_key_first: 'Escribe primero tu clave API.',
+    loading_models: 'Recuperando modelos disponibles...',
+    no_models_found: 'No se han encontrado modelos para este servicio.',
+    models_loaded: 'Modelos recuperados.',
+    models_available: '{count} modelos disponibles.',
+    models_load_failed: 'No se pudieron cargar los modelos.',
+    missing_file: 'Falta el archivo .elpx.',
+    missing_model: 'Falta el identificador del modelo.',
+    missing_api_key: 'Falta la clave API.',
+    same_languages: 'El idioma de origen y el de destino no pueden ser iguales.',
+    invalid_language_code: 'El código de idioma no es válido.',
+    opening_elpx: 'Abriendo el archivo .elpx...',
+    translation_done: 'Traducción terminada.',
+    unique_blocks_processed: '{count} bloques únicos procesados.',
+    translation_failed: 'Ha fallado la traducción.',
+    remote_error: 'Error remoto {status}.',
+  },
+  en: {
+    meta_description: 'Web version for translating .elpx files in the browser using your own API.',
+    language_label: 'Language',
+    nav_home: 'Main page',
+    nav_issues: 'Issues',
+    hero_eyebrow: 'Web version',
+    hero_title: 'ELPX Translator web',
+    hero_lead: 'Translate .elpx files from your browser.',
+    hero_desktop_note: 'If you do not have an API key or prefer to work locally, use the <a href="../index.html#descargas">desktop version</a>.',
+    hero_note_title: 'What this version does',
+    hero_note_1: 'Translates .elpx files.',
+    hero_note_2: 'Generates a new translated file for download.',
+    hero_note_3: 'Needs your own API key to work.',
+    api_panel_title: 'API and model',
+    api_panel_body: 'The API key is stored in this browser so you do not have to type it every time.',
+    provider_label: 'API service',
+    api_key_label: 'API key',
+    clear_api_key_button: 'Clear key',
+    model_label: 'Model',
+    load_models_button: 'Load models',
+    privacy_title: 'Privacy:',
+    privacy_1: 'The file is opened locally in the browser.',
+    privacy_2: 'The text is sent to the API service you choose for translation.',
+    privacy_3: 'There is no intermediary server of our own.',
+    no_api_title: 'No API?',
+    no_api_1: 'The web version needs an API key from an external provider.',
+    no_api_2: 'If you do not have one, use the desktop version with local processing.',
+    no_api_3: '<a href="../index.html">Go to the main page</a> for information and downloads.',
+    file_panel_title: 'File and languages',
+    file_panel_body: 'Choose the file and languages before translating.',
+    file_label: '.elpx file',
+    source_language_label: 'Source language',
+    target_language_label: 'Target language',
+    custom_target_label: 'Language code',
+    custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
+    translate_button: 'Translate file',
+    reset_button: 'Reset',
+    status_title: 'Status',
+    status_body: 'You will see translation progress here.',
+    status_idle_badge: 'Ready to start',
+    status_idle_text: 'Select a file, configure the provider, and start the translation.',
+    status_running_badge: 'In progress',
+    status_error_badge: 'Error',
+    status_done_badge: 'Completed',
+    result_title: 'Result',
+    result_file_generated: 'Generated file: {filename}',
+    download_button: 'Download translated file',
+    tips_title: 'Keep in mind',
+    tips_1: 'The web version does not replace the desktop version.',
+    tips_2: 'You need your own API key.',
+    tips_3: 'It is advisable to review the translated file before publishing it.',
+    custom_target_option: 'Other language code',
+    no_pending_text: 'There is no text pending translation.',
+    preparing_batches: 'Preparing batches...',
+    sending_unique_blocks: 'Sending {count} unique blocks to the remote provider.',
+    translating_blocks: 'Translating blocks {completed} of {total}.',
+    batch_completed: 'Batch {batch} completed.',
+    invalid_remote_response: 'The remote response did not return a valid translations list.',
+    unsupported_provider: 'Unsupported provider: {provider}',
+    content_xml_missing: 'content.xml was not found inside the .elpx file.',
+    xml_parse_error: 'content.xml could not be parsed.',
+    write_api_key_first: 'Enter your API key first.',
+    loading_models: 'Loading available models...',
+    no_models_found: 'No models were found for this service.',
+    models_loaded: 'Models loaded.',
+    models_available: '{count} models available.',
+    models_load_failed: 'The models could not be loaded.',
+    missing_file: 'The .elpx file is missing.',
+    missing_model: 'The model identifier is missing.',
+    missing_api_key: 'The API key is missing.',
+    same_languages: 'Source and target languages cannot be the same.',
+    invalid_language_code: 'The language code is not valid.',
+    opening_elpx: 'Opening the .elpx file...',
+    translation_done: 'Translation finished.',
+    unique_blocks_processed: '{count} unique blocks processed.',
+    translation_failed: 'The translation failed.',
+    remote_error: 'Remote error {status}.',
+  },
+  ca: {
+    meta_description: 'Versió web per traduir fitxers .elpx des del navegador amb la teua API.',
+    language_label: 'Idioma',
+    nav_home: 'Pàgina principal',
+    nav_issues: 'Incidències',
+    hero_eyebrow: 'Versió web',
+    hero_title: 'ELPX Translator web',
+    hero_lead: 'Tradueix fitxers .elpx des del navegador.',
+    hero_desktop_note: 'Si no disposes de clau API o prefereixes treballar en local, usa la <a href="../index.html#descargas">versió d’escriptori</a>.',
+    hero_note_title: 'Què fa aquesta versió',
+    hero_note_1: 'Tradueix fitxers .elpx.',
+    hero_note_2: 'Genera un nou fitxer traduït per descarregar.',
+    hero_note_3: 'Necessita la teua pròpia clau API per funcionar.',
+    api_panel_title: 'API i model',
+    api_panel_body: 'La clau API es guarda en aquest navegador perquè no l’hages d’escriure cada vegada.',
+    provider_label: 'Servei API',
+    api_key_label: 'Clau API',
+    clear_api_key_button: 'Esborrar clau',
+    model_label: 'Model',
+    load_models_button: 'Carregar models',
+    privacy_title: 'Privacitat:',
+    privacy_1: 'El fitxer s’obri localment al navegador.',
+    privacy_2: 'El text s’envia al servei API que tries per fer la traducció.',
+    privacy_3: 'No hi ha cap servidor intermedi propi.',
+    no_api_title: 'No tens API?',
+    no_api_1: 'La versió web necessita una clau API d’un proveïdor extern.',
+    no_api_2: 'Si no en disposes, usa la versió d’escriptori amb processament local.',
+    no_api_3: '<a href="../index.html">Ves a la pàgina principal</a> per veure informació i descàrregues.',
+    file_panel_title: 'Fitxer i idiomes',
+    file_panel_body: 'Tria el fitxer i els idiomes abans de traduir.',
+    file_label: 'Fitxer .elpx',
+    source_language_label: 'Idioma d’origen',
+    target_language_label: 'Idioma de destinació',
+    custom_target_label: 'Codi d’idioma',
+    custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
+    translate_button: 'Traduir fitxer',
+    reset_button: 'Netejar',
+    status_title: 'Estat',
+    status_body: 'Ací veuràs com avança la traducció.',
+    status_idle_badge: 'A punt per començar',
+    status_idle_text: 'Selecciona un fitxer, configura el proveïdor i llança la traducció.',
+    status_running_badge: 'En procés',
+    status_error_badge: 'Error',
+    status_done_badge: 'Completat',
+    result_title: 'Resultat',
+    result_file_generated: 'Fitxer generat: {filename}',
+    download_button: 'Descarregar fitxer traduït',
+    tips_title: 'Tingues en compte',
+    tips_1: 'La versió web no substitueix la versió d’escriptori.',
+    tips_2: 'Necessites la teua pròpia clau API.',
+    tips_3: 'Convé revisar el fitxer traduït abans de publicar-lo.',
+    custom_target_option: 'Un altre codi d’idioma',
+    no_pending_text: 'No hi ha text pendent de traduir.',
+    preparing_batches: 'Preparant lots...',
+    sending_unique_blocks: 'Enviant {count} blocs únics al proveïdor remot.',
+    translating_blocks: 'Traduint blocs {completed} de {total}.',
+    batch_completed: 'Lot {batch} completat.',
+    invalid_remote_response: 'La resposta remota no ha tornat una llista vàlida de traduccions.',
+    unsupported_provider: 'Proveïdor no suportat: {provider}',
+    content_xml_missing: 'No s’ha trobat content.xml dins del fitxer .elpx.',
+    xml_parse_error: 'No s’ha pogut analitzar content.xml.',
+    write_api_key_first: 'Escriu primer la teua clau API.',
+    loading_models: 'Recuperant models disponibles...',
+    no_models_found: 'No s’han trobat models per a aquest servei.',
+    models_loaded: 'Models recuperats.',
+    models_available: '{count} models disponibles.',
+    models_load_failed: 'No s’han pogut carregar els models.',
+    missing_file: 'Falta el fitxer .elpx.',
+    missing_model: 'Falta l’identificador del model.',
+    missing_api_key: 'Falta la clau API.',
+    same_languages: 'L’idioma d’origen i el de destinació no poden ser iguals.',
+    invalid_language_code: 'El codi d’idioma no és vàlid.',
+    opening_elpx: 'Obrint el fitxer .elpx...',
+    translation_done: 'Traducció acabada.',
+    unique_blocks_processed: '{count} blocs únics processats.',
+    translation_failed: 'La traducció ha fallat.',
+    remote_error: 'Error remot {status}.',
+  },
+  eu: {
+    meta_description: 'Web bertsioa .elpx fitxategiak nabigatzailetik zure APIarekin itzultzeko.',
+    language_label: 'Hizkuntza',
+    nav_home: 'Orri nagusia',
+    nav_issues: 'Gorabeherak',
+    hero_eyebrow: 'Web bertsioa',
+    hero_title: 'ELPX Translator web',
+    hero_lead: '.elpx fitxategiak nabigatzailetik itzuli.',
+    hero_desktop_note: 'API gakorik ez baduzu edo lokalean lan egin nahi baduzu, erabili <a href="../index.html#descargas">mahaigaineko bertsioa</a>.',
+    hero_note_title: 'Bertsio honek zer egiten duen',
+    hero_note_1: '.elpx fitxategiak itzultzen ditu.',
+    hero_note_2: 'Deskargatzeko fitxategi itzuli berri bat sortzen du.',
+    hero_note_3: 'Funtzionatzeko zure API gakoa behar du.',
+    api_panel_title: 'APIa eta eredua',
+    api_panel_body: 'API gakoa nabigatzaile honetan gordetzen da, aldiro idatzi behar ez izateko.',
+    provider_label: 'API zerbitzua',
+    api_key_label: 'API gakoa',
+    clear_api_key_button: 'Gakoa ezabatu',
+    model_label: 'Eredua',
+    load_models_button: 'Ereduak kargatu',
+    privacy_title: 'Pribatutasuna:',
+    privacy_1: 'Fitxategia lokalean irekitzen da nabigatzailean.',
+    privacy_2: 'Testua zuk aukeratutako API zerbitzura bidaltzen da itzulpena egiteko.',
+    privacy_3: 'Ez dago gure bitarteko zerbitzaririk.',
+    no_api_title: 'APIrik ez?',
+    no_api_1: 'Web bertsioak kanpoko hornitzaile baten API gakoa behar du.',
+    no_api_2: 'Ez baduzu, erabili prozesamendu lokala duen mahaigaineko bertsioa.',
+    no_api_3: '<a href="../index.html">Joan orri nagusira</a> informazioa eta deskargak ikusteko.',
+    file_panel_title: 'Fitxategia eta hizkuntzak',
+    file_panel_body: 'Aukeratu fitxategia eta hizkuntzak itzuli aurretik.',
+    file_label: '.elpx fitxategia',
+    source_language_label: 'Jatorrizko hizkuntza',
+    target_language_label: 'Helburuko hizkuntza',
+    custom_target_label: 'Hizkuntza kodea',
+    custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
+    translate_button: 'Fitxategia itzuli',
+    reset_button: 'Garbitu',
+    status_title: 'Egoera',
+    status_body: 'Hemen ikusiko duzu itzulpenaren aurrerapena.',
+    status_idle_badge: 'Hasteko prest',
+    status_idle_text: 'Hautatu fitxategi bat, konfiguratu hornitzailea eta abiarazi itzulpena.',
+    status_running_badge: 'Martxan',
+    status_error_badge: 'Errorea',
+    status_done_badge: 'Osatuta',
+    result_title: 'Emaitza',
+    result_file_generated: 'Sortutako fitxategia: {filename}',
+    download_button: 'Itzulitako fitxategia deskargatu',
+    tips_title: 'Kontuan izan',
+    tips_1: 'Web bertsioak ez du mahaigaineko bertsioa ordezkatzen.',
+    tips_2: 'Zure API gakoa behar duzu.',
+    tips_3: 'Argitaratu aurretik itzulitako fitxategia berrikustea komeni da.',
+    custom_target_option: 'Beste hizkuntza kode bat',
+    no_pending_text: 'Ez dago itzultzeko testu pendenterik.',
+    preparing_batches: 'Multzoak prestatzen...',
+    sending_unique_blocks: '{count} bloke bakar hornitzaile urrunera bidaltzen...',
+    translating_blocks: '{completed} / {total} bloke itzultzen.',
+    batch_completed: '{batch}. multzoa osatuta.',
+    invalid_remote_response: 'Erantzun urrunak ez du itzulpen zerrenda baliodunik itzuli.',
+    unsupported_provider: 'Onartu gabeko hornitzailea: {provider}',
+    content_xml_missing: 'Ez da content.xml aurkitu .elpx fitxategiaren barruan.',
+    xml_parse_error: 'Ezin izan da content.xml analizatu.',
+    write_api_key_first: 'Idatzi lehenik zure API gakoa.',
+    loading_models: 'Eredu erabilgarriak berreskuratzen...',
+    no_models_found: 'Ez da eredurik aurkitu zerbitzu honetarako.',
+    models_loaded: 'Ereduak berreskuratu dira.',
+    models_available: '{count} eredu erabilgarri.',
+    models_load_failed: 'Ezin izan dira ereduak kargatu.',
+    missing_file: '.elpx fitxategia falta da.',
+    missing_model: 'Eredu identifikatzailea falta da.',
+    missing_api_key: 'API gakoa falta da.',
+    same_languages: 'Jatorrizko eta helburuko hizkuntzak ezin dira berdinak izan.',
+    invalid_language_code: 'Hizkuntza kodea ez da baliozkoa.',
+    opening_elpx: '.elpx fitxategia irekitzen...',
+    translation_done: 'Itzulpena amaitu da.',
+    unique_blocks_processed: '{count} bloke bakar prozesatu dira.',
+    translation_failed: 'Itzulpenak huts egin du.',
+    remote_error: '{status} errore urruna.',
+  },
+  gl: {
+    meta_description: 'Versión web para traducir ficheiros .elpx desde o navegador coa túa API.',
+    language_label: 'Idioma',
+    nav_home: 'Páxina principal',
+    nav_issues: 'Incidencias',
+    hero_eyebrow: 'Versión web',
+    hero_title: 'ELPX Translator web',
+    hero_lead: 'Traduce ficheiros .elpx desde o navegador.',
+    hero_desktop_note: 'Se non dispós de clave API ou prefires traballar en local, usa a <a href="../index.html#descargas">versión de escritorio</a>.',
+    hero_note_title: 'Que fai esta versión',
+    hero_note_1: 'Traduce ficheiros .elpx.',
+    hero_note_2: 'Xera un novo ficheiro traducido para descargar.',
+    hero_note_3: 'Necesita a túa propia clave API para funcionar.',
+    api_panel_title: 'API e modelo',
+    api_panel_body: 'A clave API gárdase neste navegador para que non teñas que escribila cada vez.',
+    provider_label: 'Servizo API',
+    api_key_label: 'Clave API',
+    clear_api_key_button: 'Borrar clave',
+    model_label: 'Modelo',
+    load_models_button: 'Cargar modelos',
+    privacy_title: 'Privacidade:',
+    privacy_1: 'O ficheiro ábrese localmente no navegador.',
+    privacy_2: 'O texto envíase ao servizo API que escollas para facer a tradución.',
+    privacy_3: 'Non hai un servidor propio intermedio.',
+    no_api_title: 'Non tes API?',
+    no_api_1: 'A versión web necesita unha clave API dun provedor externo.',
+    no_api_2: 'Se non dispós dela, usa a versión de escritorio con procesamento local.',
+    no_api_3: '<a href="../index.html">Ir á páxina principal</a> para ver información e descargas.',
+    file_panel_title: 'Ficheiro e idiomas',
+    file_panel_body: 'Escolle o ficheiro e os idiomas antes de traducir.',
+    file_label: 'Ficheiro .elpx',
+    source_language_label: 'Idioma de orixe',
+    target_language_label: 'Idioma de destino',
+    custom_target_label: 'Código de idioma',
+    custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
+    translate_button: 'Traducir ficheiro',
+    reset_button: 'Limpar',
+    status_title: 'Estado',
+    status_body: 'Aquí verás como avanza a tradución.',
+    status_idle_badge: 'Listo para empezar',
+    status_idle_text: 'Selecciona un ficheiro, configura o provedor e lanza a tradución.',
+    status_running_badge: 'En proceso',
+    status_error_badge: 'Erro',
+    status_done_badge: 'Completado',
+    result_title: 'Resultado',
+    result_file_generated: 'Ficheiro xerado: {filename}',
+    download_button: 'Descargar ficheiro traducido',
+    tips_title: 'Ten en conta',
+    tips_1: 'A versión web non substitúe a versión de escritorio.',
+    tips_2: 'Necesitas a túa propia clave API.',
+    tips_3: 'Convén revisar o ficheiro traducido antes de publicalo.',
+    custom_target_option: 'Outro código de idioma',
+    no_pending_text: 'Non hai texto pendente de traducir.',
+    preparing_batches: 'Preparando lotes...',
+    sending_unique_blocks: 'Enviando {count} bloques únicos ao provedor remoto.',
+    translating_blocks: 'Traducindo bloques {completed} de {total}.',
+    batch_completed: 'Lote {batch} completado.',
+    invalid_remote_response: 'A resposta remota non devolveu unha lista válida de traducións.',
+    unsupported_provider: 'Provedor non soportado: {provider}',
+    content_xml_missing: 'Non se atopou content.xml dentro do ficheiro .elpx.',
+    xml_parse_error: 'Non se puido analizar content.xml.',
+    write_api_key_first: 'Escribe primeiro a túa clave API.',
+    loading_models: 'Recuperando modelos dispoñibles...',
+    no_models_found: 'Non se atoparon modelos para este servizo.',
+    models_loaded: 'Modelos recuperados.',
+    models_available: '{count} modelos dispoñibles.',
+    models_load_failed: 'Non se puideron cargar os modelos.',
+    missing_file: 'Falta o ficheiro .elpx.',
+    missing_model: 'Falta o identificador do modelo.',
+    missing_api_key: 'Falta a clave API.',
+    same_languages: 'O idioma de orixe e o de destino non poden ser iguais.',
+    invalid_language_code: 'O código de idioma non é válido.',
+    opening_elpx: 'Abrindo o ficheiro .elpx...',
+    translation_done: 'Tradución rematada.',
+    unique_blocks_processed: '{count} bloques únicos procesados.',
+    translation_failed: 'A tradución fallou.',
+    remote_error: 'Erro remoto {status}.',
+  },
+};
+
 const HTML_TRANSLATABLE_ATTRIBUTES = ['alt', 'title', 'placeholder', 'aria-label', 'label'];
 const EXCLUDED_HTML_TAGS = new Set(['code', 'pre', 'script', 'style', 'kbd', 'samp', 'math', 'svg']);
 const JSON_SKIP_KEYS = new Set([
@@ -89,7 +484,7 @@ const JSON_SKIP_KEYS = new Set([
   'icon',
 ]);
 
-const STORAGE_KEY = 'elpx-web-beta-settings';
+const APP_SETTINGS_STORAGE_KEY = 'elpx-web-beta-settings';
 const REFERENCE_RE = /^(asset:\/\/|https?:\/\/|mailto:|tel:|exe-node:|\{\{context_path\}\})/i;
 const HASHLIKE_RE = /^[A-Za-z0-9_-]{20,}$/;
 const HTML_RE = /<\/?[a-z][\s\S]*>/i;
@@ -104,6 +499,7 @@ const DEFAULT_BATCH_SIZE = 8;
 const CUSTOM_TARGET_LANGUAGE_VALUE = '__custom_target__';
 
 const elements = {
+  languagePicker: document.getElementById('language-picker'),
   form: document.getElementById('translator-form'),
   inputFile: document.getElementById('input-file'),
   sourceLanguage: document.getElementById('source-language'),
@@ -127,6 +523,70 @@ const elements = {
 };
 
 let activeDownloadUrl = null;
+let currentLanguage = 'es';
+
+function languagePack(language) {
+  return APP_I18N[language] || APP_I18N.es;
+}
+
+function t(key, params = {}) {
+  let value = languagePack(currentLanguage)[key] || APP_I18N.es[key] || key;
+  for (const [param, replacement] of Object.entries(params)) {
+    value = value.replaceAll(`{${param}}`, String(replacement));
+  }
+  return value;
+}
+
+function detectLanguage() {
+  const saved = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+  if (saved && UI_SUPPORTED_LANGUAGES.includes(saved)) {
+    return saved;
+  }
+
+  const candidates = [...(navigator.languages || []), navigator.language, navigator.userLanguage].filter(Boolean);
+  for (const candidate of candidates) {
+    const code = String(candidate).toLowerCase().split('-', 1)[0];
+    if (UI_SUPPORTED_LANGUAGES.includes(code)) {
+      return code;
+    }
+  }
+
+  return 'es';
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = currentLanguage;
+  document.title = t('hero_title');
+  const metaDescription = document.querySelector('meta[name="description"]');
+  if (metaDescription) {
+    metaDescription.setAttribute('content', t('meta_description'));
+  }
+
+  document.querySelectorAll('[data-i18n]').forEach((element) => {
+    const key = element.dataset.i18n;
+    const value = t(key);
+    if (element.dataset.i18nMode === 'html') {
+      element.innerHTML = value;
+      return;
+    }
+    element.textContent = value;
+  });
+
+  document.querySelectorAll('[data-i18n-attr]').forEach((element) => {
+    const mappings = element.dataset.i18nAttr.split(',');
+    for (const mapping of mappings) {
+      const [attribute, key] = mapping.split(':');
+      if (attribute && key) {
+        element.setAttribute(attribute.trim(), t(key.trim()));
+      }
+    }
+  });
+
+  if (elements.languagePicker) {
+    elements.languagePicker.value = currentLanguage;
+    elements.languagePicker.setAttribute('aria-label', t('language_label'));
+  }
+}
 
 class TranslationPlanner {
   constructor() {
@@ -154,20 +614,20 @@ class TranslationPlanner {
     const total = uniqueTexts.length;
 
     if (!total) {
-      onProgress({ status: 'No hay texto pendiente de traducir.', detail: '', progress: 100 });
+      onProgress({ status: t('no_pending_text'), detail: '', progress: 100 });
       return;
     }
 
     onProgress({
-      status: `Enviando ${total} bloques únicos al proveedor remoto.`,
-      detail: 'Preparando lotes...',
+      status: t('sending_unique_blocks', { count: total }),
+      detail: t('preparing_batches'),
       progress: 6,
     });
 
     const translatedMap = await translator.translateMany(uniqueTexts, context, (message) => {
       const percent = 6 + Math.round((message.completed / total) * 82);
       onProgress({
-        status: `Traduciendo bloques ${message.completed} de ${total}.`,
+        status: t('translating_blocks', { completed: message.completed, total }),
         detail: message.detail,
         progress: percent,
       });
@@ -216,7 +676,7 @@ class RemoteTranslator {
       completedChunks += batch.length;
       onBatchProgress({
         completed: Math.min(completedChunks, chunkJobs.length),
-        detail: `Lote ${Math.ceil(completedChunks / this.batchSize)} completado.`,
+        detail: t('batch_completed', { batch: Math.ceil(completedChunks / this.batchSize) }),
       });
     }
 
@@ -257,7 +717,7 @@ class RemoteTranslator {
     const data = extractJsonObject(rawContent);
     const translations = Array.isArray(data?.translations) ? data.translations : null;
     if (!translations || translations.length !== texts.length) {
-      throw new Error('La respuesta remota no devolvió una lista de traducciones válida.');
+      throw new Error(t('invalid_remote_response'));
     }
     return translations.map((item) => (typeof item === 'string' ? item : String(item)));
   }
@@ -279,7 +739,7 @@ class RemoteTranslator {
     }[this.provider];
 
     if (!config) {
-      throw new Error(`Proveedor no soportado: ${this.provider}`);
+      throw new Error(t('unsupported_provider', { provider: this.provider }));
     }
 
     const response = await fetch(config.url, {
@@ -348,7 +808,7 @@ function fillSelect(select, options, selectedValue) {
 }
 
 function fillTargetLanguageOptions(selectedValue) {
-  const options = [...LANGUAGE_OPTIONS, [CUSTOM_TARGET_LANGUAGE_VALUE, 'Otro código de idioma']];
+  const options = [...LANGUAGE_OPTIONS, [CUSTOM_TARGET_LANGUAGE_VALUE, t('custom_target_option')]];
   elements.targetLanguage.innerHTML = options
     .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
     .join('');
@@ -363,7 +823,7 @@ function fillProviderOptions() {
 
 function loadSavedSettings() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return JSON.parse(localStorage.getItem(APP_SETTINGS_STORAGE_KEY) || '{}');
   } catch {
     return {};
   }
@@ -388,7 +848,7 @@ function saveSettings() {
     providerApiKeys,
     providerModels,
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(payload));
 }
 
 function isCustomTargetSelected() {
@@ -573,7 +1033,7 @@ function setBusy(isBusy) {
 }
 
 function setStatus(message, { detail = '', progress = null, isError = false } = {}) {
-  elements.statusBadge.textContent = isError ? 'Error' : 'En proceso';
+  elements.statusBadge.textContent = isError ? t('status_error_badge') : t('status_running_badge');
   elements.statusBadge.classList.toggle('is-error', isError);
   if (progress === null) {
     elements.progress.removeAttribute('value');
@@ -585,15 +1045,15 @@ function setStatus(message, { detail = '', progress = null, isError = false } = 
 }
 
 function setIdleStatus() {
-  elements.statusBadge.textContent = 'Listo para empezar';
+  elements.statusBadge.textContent = t('status_idle_badge');
   elements.statusBadge.classList.remove('is-error');
   elements.progress.value = 0;
-  elements.statusText.textContent = 'Selecciona un archivo, configura el proveedor y lanza la traducción.';
+  elements.statusText.textContent = t('status_idle_text');
   elements.statusDetail.textContent = '';
 }
 
 function setDoneStatus(message, detail = '') {
-  elements.statusBadge.textContent = 'Completado';
+  elements.statusBadge.textContent = t('status_done_badge');
   elements.statusBadge.classList.remove('is-error');
   elements.progress.value = 100;
   elements.statusText.textContent = message;
@@ -614,7 +1074,7 @@ function showResult(blob, filename) {
   clearResult();
   activeDownloadUrl = URL.createObjectURL(blob);
   elements.resultCard.classList.remove('hidden');
-  elements.resultText.textContent = `Archivo generado: ${filename}`;
+  elements.resultText.textContent = t('result_file_generated', { filename });
   elements.downloadLink.href = activeDownloadUrl;
   elements.downloadLink.download = filename;
 }
@@ -623,7 +1083,7 @@ async function translateElpxFile(file, settings) {
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const contentXmlPath = findContentXmlPath(Object.keys(zip.files));
   if (!contentXmlPath) {
-    throw new Error('No se encontró content.xml dentro del archivo .elpx.');
+    throw new Error(t('content_xml_missing'));
   }
 
   const xmlContent = await zip.file(contentXmlPath).async('string');
@@ -853,7 +1313,7 @@ function enqueuePlainText(planner, text, apply) {
 function parseXml(xmlContent) {
   const xmlDocument = new DOMParser().parseFromString(xmlContent, 'application/xml');
   if (xmlDocument.querySelector('parsererror')) {
-    throw new Error('No se pudo analizar content.xml.');
+    throw new Error(t('xml_parse_error'));
   }
   return xmlDocument;
 }
@@ -1170,7 +1630,7 @@ function extractProviderError(data, status) {
     data?.detail,
     typeof data?.error === 'string' ? data.error : '',
   ].filter(Boolean);
-  return messages[0] || `Error remoto ${status}.`;
+  return messages[0] || t('remote_error', { status });
 }
 
 function escapeHtml(value) {
@@ -1206,6 +1666,31 @@ function initializeForm() {
   }
   toggleCustomTargetVisibility();
   syncApiDependentControls();
+}
+
+function applyLanguage(language) {
+  currentLanguage = UI_SUPPORTED_LANGUAGES.includes(language) ? language : 'es';
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, currentLanguage);
+  applyStaticTranslations();
+
+  const currentTarget = elements.targetLanguage.value || 'en';
+  fillTargetLanguageOptions(currentTarget);
+  toggleCustomTargetVisibility();
+
+  if (elements.statusBadge.classList.contains('is-error')) {
+    if (elements.statusBadge.textContent === APP_I18N.es.status_error_badge
+      || Object.values(APP_I18N).some((pack) => pack.status_error_badge === elements.statusBadge.textContent)) {
+      elements.statusBadge.textContent = t('status_error_badge');
+    }
+  } else if (elements.progress.value === 100) {
+    if (Object.values(APP_I18N).some((pack) => pack.status_done_badge === elements.statusBadge.textContent)) {
+      elements.statusBadge.textContent = t('status_done_badge');
+    }
+  } else if (Object.values(APP_I18N).some((pack) => pack.status_idle_badge === elements.statusBadge.textContent)) {
+    setIdleStatus();
+  } else if (Object.values(APP_I18N).some((pack) => pack.status_running_badge === elements.statusBadge.textContent)) {
+    elements.statusBadge.textContent = t('status_running_badge');
+  }
 }
 
 elements.provider.addEventListener('change', () => {
@@ -1244,7 +1729,7 @@ elements.clearApiKeyButton.addEventListener('click', () => {
     [elements.provider.value]: '',
   };
   elements.apiKey.value = '';
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify({
     ...saved,
     providerApiKeys,
   }));
@@ -1265,25 +1750,25 @@ elements.loadModelsButton.addEventListener('click', async () => {
   const apiKey = elements.apiKey.value.trim();
 
   if (!apiKey) {
-    setStatus('Escribe primero tu clave API.', { isError: true, progress: 0 });
+    setStatus(t('write_api_key_first'), { isError: true, progress: 0 });
     return;
   }
 
   elements.loadModelsButton.disabled = true;
-  setStatus('Recuperando modelos disponibles...', { progress: 5 });
+  setStatus(t('loading_models'), { progress: 5 });
 
   try {
     const models = await listAvailableModels(provider, apiKey);
     if (!models.length) {
-      setStatus('No se han encontrado modelos para este servicio.', { isError: true, progress: 0 });
+      setStatus(t('no_models_found'), { isError: true, progress: 0 });
       return;
     }
     renderModelOptions(models);
     elements.model.value = models[0];
     saveSettings();
-    setDoneStatus('Modelos recuperados.', `${models.length} modelos disponibles.`);
+    setDoneStatus(t('models_loaded'), t('models_available', { count: models.length }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : 'No se pudieron cargar los modelos.', {
+    setStatus(error instanceof Error ? error.message : t('models_load_failed'), {
       isError: true,
       progress: 0,
     });
@@ -1304,29 +1789,29 @@ elements.form.addEventListener('submit', async (event) => {
   const apiKey = elements.apiKey.value.trim();
 
   if (!file) {
-    setStatus('Falta el archivo `.elpx`.', { isError: true, progress: 0 });
+    setStatus(t('missing_file'), { isError: true, progress: 0 });
     return;
   }
   if (!model) {
-    setStatus('Falta el identificador del modelo.', { isError: true, progress: 0 });
+    setStatus(t('missing_model'), { isError: true, progress: 0 });
     return;
   }
   if (!apiKey) {
-    setStatus('Falta la clave API.', { isError: true, progress: 0 });
+    setStatus(t('missing_api_key'), { isError: true, progress: 0 });
     return;
   }
   if (sourceLanguage === targetLanguage) {
-    setStatus('El idioma de origen y el de destino no pueden ser iguales.', { isError: true, progress: 0 });
+    setStatus(t('same_languages'), { isError: true, progress: 0 });
     return;
   }
   if (isCustomTargetSelected() && !isValidCustomTargetLanguage(targetLanguage)) {
-    setStatus('El código de idioma no es válido.', { isError: true, progress: 0 });
+    setStatus(t('invalid_language_code'), { isError: true, progress: 0 });
     return;
   }
 
   saveSettings();
   setBusy(true);
-  setStatus('Abriendo el archivo `.elpx`...', { progress: 2 });
+  setStatus(t('opening_elpx'), { progress: 2 });
 
   try {
     const result = await translateElpxFile(file, {
@@ -1339,9 +1824,9 @@ elements.form.addEventListener('submit', async (event) => {
     });
 
     showResult(result.blob, result.filename);
-    setDoneStatus('Traducción terminada.', `${result.queuedUnits} bloques únicos procesados.`);
+    setDoneStatus(t('translation_done'), t('unique_blocks_processed', { count: result.queuedUnits }));
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : 'Ha fallado la traducción.', {
+    setStatus(error instanceof Error ? error.message : t('translation_failed'), {
       isError: true,
       progress: 0,
     });
@@ -1350,5 +1835,12 @@ elements.form.addEventListener('submit', async (event) => {
   }
 });
 
+if (elements.languagePicker) {
+  elements.languagePicker.addEventListener('change', (event) => {
+    applyLanguage(event.target.value);
+  });
+}
+
 initializeForm();
+applyLanguage(detectLanguage());
 setIdleStatus();
