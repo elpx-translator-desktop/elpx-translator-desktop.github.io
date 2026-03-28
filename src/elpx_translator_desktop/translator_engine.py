@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,28 @@ from .progress import ProgressEvent, TranslationCancelledError
 from .remote_provider import RemoteProviderError, create_translation_completion, is_structured_response_error
 from .text_utils import sanitize_translated_text, split_long_text
 from .ui_i18n import tr
+
+
+CACHE_APP_NAME = 'elpx-translator-desktop'
+CACHE_APP_AUTHOR = 'elpx-translator-desktop'
+LEGACY_CACHE_APP_AUTHOR = 'Juanjo'
+
+
+def _cache_models_dir(app_author: str) -> Path:
+    return Path(user_cache_dir(CACHE_APP_NAME, app_author)) / 'models'
+
+
+def _migrate_legacy_model_cache_if_needed() -> Path:
+    cache_dir = _cache_models_dir(CACHE_APP_AUTHOR)
+    legacy_cache_dir = _cache_models_dir(LEGACY_CACHE_APP_AUTHOR)
+
+    if cache_dir.exists() or not legacy_cache_dir.exists():
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
+
+    cache_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(legacy_cache_dir, cache_dir)
+    return cache_dir
 
 
 @dataclass(frozen=True)
@@ -90,8 +113,7 @@ class TranslationEngine:
         ):
             return
 
-        cache_dir = Path(user_cache_dir('elpx-translator-desktop', 'Juanjo')) / 'models'
-        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir = _migrate_legacy_model_cache_if_needed()
 
         progress_callback(
             ProgressEvent(

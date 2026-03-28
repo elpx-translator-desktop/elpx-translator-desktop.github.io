@@ -36,6 +36,9 @@ from PySide6.QtWidgets import (
 
 APP_LOG_PATH = Path(__file__).resolve().parents[2] / 'elpx-translator-desktop-runtime.log'
 CUSTOM_TARGET_LANGUAGE_VALUE = '__custom_target__'
+SETTINGS_ORGANIZATION = 'elpx-translator-desktop'
+LEGACY_SETTINGS_ORGANIZATION = 'Juanjo'
+SETTINGS_APPLICATION = 'ELPXTranslatorDesktop'
 
 
 def _append_runtime_log(message: str) -> None:
@@ -46,6 +49,25 @@ def _append_runtime_log(message: str) -> None:
             handle.write(f'[{timestamp}] {message}\n')
     except Exception:
         pass
+
+
+def _migrate_legacy_settings_if_needed() -> QSettings:
+    settings = QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
+    if settings.allKeys():
+        return settings
+
+    legacy_settings = QSettings(LEGACY_SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
+    legacy_keys = legacy_settings.allKeys()
+    if not legacy_keys:
+        return settings
+
+    for key in legacy_keys:
+        settings.setValue(key, legacy_settings.value(key))
+    settings.sync()
+    _append_runtime_log(
+        f'Migrated QSettings from {LEGACY_SETTINGS_ORGANIZATION} to {SETTINGS_ORGANIZATION}',
+    )
+    return settings
 
 
 if __package__ in {None, ''}:
@@ -738,7 +760,7 @@ class MainWindow(QMainWindow):
         self.cancel_requested = False
         self.latest_version: str | None = None
         self.latest_version_url: str | None = None
-        self.settings = QSettings('Juanjo', 'ELPXTranslatorDesktop')
+        self.settings = _migrate_legacy_settings_if_needed()
         self.ui_language = self._load_ui_language()
         self.performance_mode = self._load_performance_mode()
         self.translation_provider = self._load_translation_provider()

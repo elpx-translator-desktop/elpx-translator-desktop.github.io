@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
 from types import SimpleNamespace
+from pathlib import Path
 from unittest.mock import patch
 
 from elpx_translator_desktop.config import EUSKERA_MODEL_CONFIGS, MODEL_CONFIG
 from elpx_translator_desktop.remote_provider import RemoteProviderError
-from elpx_translator_desktop.translator_engine import TranslationEngine
+from elpx_translator_desktop.translator_engine import (
+    CACHE_APP_AUTHOR,
+    CACHE_APP_NAME,
+    LEGACY_CACHE_APP_AUTHOR,
+    TranslationEngine,
+    _migrate_legacy_model_cache_if_needed,
+)
 
 
 class TranslatorEngineTests(unittest.TestCase):
@@ -112,6 +120,26 @@ class TranslatorEngineTests(unittest.TestCase):
 
         self.assertEqual(translated, ['hola', 'adiós'])
         self.assertEqual(completion_mock.call_count, 3)
+
+    def test_migrates_legacy_model_cache_when_new_cache_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base_dir = Path(temp_dir)
+
+            def fake_user_cache_dir(app_name: str, app_author: str) -> str:
+                self.assertEqual(app_name, CACHE_APP_NAME)
+                return str(base_dir / app_author)
+
+            legacy_models_dir = base_dir / LEGACY_CACHE_APP_AUTHOR / 'models'
+            legacy_models_dir.mkdir(parents=True)
+            marker = legacy_models_dir / 'marker.txt'
+            marker.write_text('cached-model', encoding='utf-8')
+
+            with patch('elpx_translator_desktop.translator_engine.user_cache_dir', fake_user_cache_dir):
+                migrated_dir = _migrate_legacy_model_cache_if_needed()
+
+            self.assertEqual(migrated_dir, base_dir / CACHE_APP_AUTHOR / 'models')
+            self.assertTrue((migrated_dir / 'marker.txt').exists())
+            self.assertEqual((migrated_dir / 'marker.txt').read_text(encoding='utf-8'), 'cached-model')
 
 
 class FakeTokenizer:
