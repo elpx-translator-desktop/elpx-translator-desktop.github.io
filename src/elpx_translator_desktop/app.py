@@ -7,7 +7,7 @@ import time
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSettings, QTimer, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -838,11 +838,6 @@ class MainWindow(QMainWindow):
         context_actions_layout.setContentsMargins(0, 0, 0, 0)
         context_actions_layout.setSpacing(6)
 
-        self.status_chip = QLabel('')
-        self.status_chip.setObjectName('statusChip')
-        self.status_chip.setFixedHeight(30)
-        context_actions_layout.addWidget(self.status_chip, 0, Qt.AlignmentFlag.AlignVCenter)
-
         self.quick_settings_button = QPushButton('')
         self.quick_settings_button.setObjectName('subtleButton')
         self.quick_settings_button.clicked.connect(self._open_settings)
@@ -1085,17 +1080,6 @@ class MainWindow(QMainWindow):
                 color: #887f73;
                 border: 1px solid #e0d8cd;
             }
-            QLabel#statusChip {
-                background: #dff2ea;
-                color: #1d6c54;
-                border: 1px solid #c8e4d8;
-                border-radius: 10px;
-                padding: 0 10px;
-                min-height: 30px;
-                max-height: 30px;
-                qproperty-alignment: AlignCenter;
-                font-weight: 700;
-            }
             QProgressBar {
                 background: #ece5da;
                 border: none;
@@ -1328,22 +1312,6 @@ class MainWindow(QMainWindow):
 
     def _set_status(self, status: str) -> None:
         self.current_status = status
-        status_label_map = {
-            'waiting': tr(self.ui_language, 'status_waiting'),
-            'working': tr(self.ui_language, 'status_working'),
-            'done': tr(self.ui_language, 'status_done'),
-            'error': tr(self.ui_language, 'status_error'),
-            'cancelled': tr(self.ui_language, 'status_cancelled'),
-        }
-        self.status_chip.setText(status_label_map.get(status, status))
-        if status == 'error':
-            self.status_chip.setStyleSheet('background:#f8e1df;color:#a84034;border-radius:16px;padding:8px 12px;font-weight:700;')
-        elif status == 'cancelled':
-            self.status_chip.setStyleSheet('background:#efe8d8;color:#8a5a12;border-radius:16px;padding:8px 12px;font-weight:700;')
-        elif status == 'done':
-            self.status_chip.setStyleSheet('background:#dceee5;color:#1d6c54;border-radius:16px;padding:8px 12px;font-weight:700;')
-        else:
-            self.status_chip.setStyleSheet('background:#dff0e9;color:#1d6c54;border-radius:16px;padding:8px 12px;font-weight:700;')
 
     def _update_timers(self) -> None:
         if not self.running or not self.start_time:
