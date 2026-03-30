@@ -13,7 +13,12 @@ from transformers import AutoTokenizer
 
 from .config import DEFAULT_PERFORMANCE_MODE, EUSKERA_MODEL_CONFIGS, MODEL_CONFIG, ModelConfig
 from .progress import ProgressEvent, TranslationCancelledError
-from .remote_provider import RemoteProviderError, create_translation_completion, is_structured_response_error
+from .remote_provider import (
+    RemoteProviderError,
+    create_translation_completion,
+    is_retryable_remote_error,
+    is_structured_response_error,
+)
 from .text_utils import sanitize_translated_text, split_long_text
 from .ui_i18n import tr
 
@@ -420,7 +425,7 @@ class TranslationEngine:
                         should_cancel=should_cancel,
                     )
                     return first_half + second_half
-                if error.status_code != 429 or attempt >= max_attempts:
+                if (error.status_code != 429 and not is_retryable_remote_error(error)) or attempt >= max_attempts:
                     raise
                 retry_delay = max(error.retry_after_seconds or 2.0, 1.0)
                 progress_callback(

@@ -23,11 +23,6 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const PROVIDERS = {
-  openai: {
-    label: 'OpenAI API',
-    defaultModel: 'gpt-5-mini',
-    defaultModels: ['gpt-5-mini', 'gpt-5-nano', 'gpt-4.1-mini'],
-  },
   gemini: {
     label: 'Gemini API',
     defaultModel: 'gemini-2.5-flash',
@@ -912,9 +907,6 @@ function isValidRemoteModel(provider, modelId) {
 
 function remoteModelSortKey(left, right) {
   const preferredOrder = {
-    'gpt-5-mini': 0,
-    'gpt-5-nano': 1,
-    'gpt-4.1-mini': 2,
     'gemini-2.5-flash': 0,
     'gemini-2.5-pro': 1,
     'gemini-2.0-flash': 2,
@@ -1643,11 +1635,12 @@ function escapeHtml(value) {
 
 function initializeForm() {
   const saved = loadSavedSettings();
+  const defaultProvider = Object.keys(PROVIDERS)[0] || '';
   fillSelect(elements.sourceLanguage, LANGUAGE_OPTIONS, saved.sourceLanguage || 'es');
   const savedTarget = saved.customTargetLanguage ? CUSTOM_TARGET_LANGUAGE_VALUE : (saved.targetLanguage || 'en');
   fillTargetLanguageOptions(savedTarget);
   fillProviderOptions();
-  elements.provider.value = saved.provider || 'openai';
+  elements.provider.value = saved.provider && PROVIDERS[saved.provider] ? saved.provider : defaultProvider;
   applyProviderDefaults(true);
   renderModelOptions(PROVIDERS[elements.provider.value]?.defaultModels || []);
   if (typeof saved.customTargetLanguage === 'string') {

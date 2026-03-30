@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import socket
 import unittest
 from unittest.mock import patch
+from urllib import error
 
 from elpx_translator_desktop.remote_provider import (
     ProviderModel,
@@ -21,6 +23,7 @@ class RemoteProviderTests(unittest.TestCase):
         self.assertEqual(get_api_key_url('deepseek'), 'https://platform.deepseek.com/api_keys')
 
     def test_fallback_models_include_new_providers(self) -> None:
+        self.assertEqual(fallback_models('openai'), [])
         self.assertEqual(
             fallback_models('anthropic'),
             [
@@ -64,6 +67,31 @@ class RemoteProviderTests(unittest.TestCase):
         models = list_available_models('deepseek', 'test-key')
 
         self.assertEqual([item.model_id for item in models], ['deepseek-chat', 'deepseek-reasoner'])
+
+    @patch('elpx_translator_desktop.remote_provider._http_json')
+    def test_create_translation_completion_for_openai_requests_json_mode(self, http_json_mock) -> None:
+        http_json_mock.return_value = {
+            'choices': [
+                {
+                    'message': {
+                        'content': '{"translations":["hola"]}',
+                    },
+                },
+            ],
+        }
+
+        result = create_translation_completion(
+            'openai',
+            api_key='test-key',
+            model_id='gpt-4.1-mini',
+            source_language='en',
+            target_language='es',
+            texts=['hello'],
+        )
+
+        self.assertEqual(result, ['hola'])
+        _, kwargs = http_json_mock.call_args
+        self.assertEqual(kwargs['body']['response_format'], {'type': 'json_object'})
 
     @patch('elpx_translator_desktop.remote_provider._http_json')
     def test_create_translation_completion_for_anthropic(self, http_json_mock) -> None:
@@ -185,6 +213,18 @@ class RemoteProviderTests(unittest.TestCase):
 
         _, kwargs = urlopen_mock.call_args
         self.assertIs(kwargs['context'], remote_provider.SSL_CONTEXT)
+
+    @patch('elpx_translator_desktop.remote_provider.request.urlopen')
+    def test_http_json_wraps_timeouts_as_retryable_remote_error(self, urlopen_mock) -> None:
+        urlopen_mock.side_effect = error.URLError(socket.timeout('timed out'))
+
+        with self.assertRaises(RemoteProviderError) as error_info:
+            from elpx_translator_desktop import remote_provider
+
+            remote_provider._http_json('https://api.openai.com/v1/chat/completions', method='POST', body={'model': 'gpt-5-mini'})
+
+        self.assertEqual(str(error_info.exception), 'Tiempo de espera agotado al llamar al proveedor remoto.')
+        self.assertEqual(error_info.exception.retry_after_seconds, 2.0)
 
 
 if __name__ == '__main__':

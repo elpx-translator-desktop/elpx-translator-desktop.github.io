@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import faulthandler
 import html
 import importlib.resources as resources
 import sys
@@ -35,10 +36,12 @@ from PySide6.QtWidgets import (
 )
 
 APP_LOG_PATH = Path(__file__).resolve().parents[2] / 'elpx-translator-desktop-runtime.log'
+FAULT_LOG_PATH = Path(__file__).resolve().parents[2] / 'elpx-translator-desktop-fault.log'
 CUSTOM_TARGET_LANGUAGE_VALUE = '__custom_target__'
 SETTINGS_ORGANIZATION = 'elpx-translator-desktop'
 LEGACY_SETTINGS_ORGANIZATION = 'Juanjo'
 SETTINGS_APPLICATION = 'ELPXTranslatorDesktop'
+_FAULT_LOG_HANDLE = None
 
 
 def _append_runtime_log(message: str) -> None:
@@ -683,6 +686,11 @@ class TranslationWorker(QObject):
     @Slot()
     def run(self) -> None:
         start_time = time.time()
+        _append_runtime_log(
+            'Worker run: start '
+            f'provider={self.translation_provider} model={self.remote_model_id or "-"} '
+            f'source={self.source_language} target={self.target_language} input={self.input_path}',
+        )
         service = ElpxTranslationService(
             engine=TranslationEngine(
                 performance_mode=self.performance_mode,
@@ -693,6 +701,7 @@ class TranslationWorker(QObject):
             ),
         )
         try:
+            _append_runtime_log('Worker run: service.translate_file enter')
             service.translate_file(
                 self.input_path,
                 self.output_path,
@@ -705,6 +714,7 @@ class TranslationWorker(QObject):
                 self.progress.emit,
             )
             elapsed = int(time.time() - start_time)
+            _append_runtime_log(f'Worker run: success output={self.output_path}')
             self.progress.emit(
                 ProgressEvent(
                     tr(
@@ -721,6 +731,7 @@ class TranslationWorker(QObject):
             elapsed = int(time.time() - start_time)
             if self.output_path.exists():
                 self.output_path.unlink(missing_ok=True)
+            _append_runtime_log(f'Worker run: cancelled error={error}')
             suffix = (
                 tr(self.ui_language, 'after_elapsed', elapsed=MainWindow.format_elapsed_summary(elapsed))
                 if elapsed
@@ -729,6 +740,7 @@ class TranslationWorker(QObject):
             self.progress.emit(ProgressEvent(f'{error}{suffix}', state='cancelled'))
         except Exception as error:  # noqa: BLE001
             elapsed = int(time.time() - start_time)
+            _append_runtime_log(f'Worker run: error {error.__class__.__name__}: {error}')
             suffix = (
                 tr(self.ui_language, 'after_elapsed', elapsed=MainWindow.format_elapsed_summary(elapsed))
                 if elapsed
@@ -736,6 +748,7 @@ class TranslationWorker(QObject):
             )
             self.progress.emit(ProgressEvent(f'{error}{suffix}', state='error'))
         finally:
+            _append_runtime_log('Worker run: finished signal emit')
             self.finished.emit()
 
 
@@ -1228,6 +1241,11 @@ class MainWindow(QMainWindow):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         self._reset_run_state()
         self._set_running(True)
+        _append_runtime_log(
+            'Start translation: '
+            f'provider={self.translation_provider} model={remote_model_id or "-"} '
+            f'source={source_language} target={target_language} input={input_path} output={output_path}',
+        )
         self._append_log(ProgressEvent(tr(self.ui_language, 'preparing_translation')))
 
         self.thread = QThread(self)
@@ -1839,6 +1857,8 @@ class MainWindow(QMainWindow):
 
 
 def main() -> None:
+    global _FAULT_LOG_HANDLE
+
     def handle_unhandled_exception(exc_type, exc_value, exc_traceback) -> None:
         formatted = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
         _append_runtime_log(f'Unhandled exception:\n{formatted}')
@@ -1846,6 +1866,14 @@ def main() -> None:
 
     sys.excepthook = handle_unhandled_exception
     _append_runtime_log('Application start')
+    try:
+        FAULT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _FAULT_LOG_HANDLE = FAULT_LOG_PATH.open('a', encoding='utf-8')
+        _FAULT_LOG_HANDLE.write(f'[{time.strftime("%Y-%m-%d %H:%M:%S")}] Application start\n')
+        _FAULT_LOG_HANDLE.flush()
+        faulthandler.enable(file=_FAULT_LOG_HANDLE, all_threads=True)
+    except Exception as error:  # noqa: BLE001
+        _append_runtime_log(f'Faulthandler setup failed: {error}')
     app = QApplication(sys.argv)
     icon_path = _resolve_app_icon_path()
     if icon_path is not None:

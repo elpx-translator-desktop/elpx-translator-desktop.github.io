@@ -121,6 +121,36 @@ class TranslatorEngineTests(unittest.TestCase):
         self.assertEqual(translated, ['hola', 'adiós'])
         self.assertEqual(completion_mock.call_count, 3)
 
+    @patch('elpx_translator_desktop.translator_engine.time.sleep')
+    @patch('elpx_translator_desktop.translator_engine.create_translation_completion')
+    def test_remote_batch_retries_when_provider_times_out(self, completion_mock, sleep_mock) -> None:
+        engine = TranslationEngine(
+            translation_provider='openai',
+            remote_model_id='gpt-5-mini',
+            remote_api_key='test-key',
+        )
+
+        completion_mock.side_effect = [
+            RemoteProviderError('Tiempo de espera agotado al llamar al proveedor remoto.', retry_after_seconds=2.0),
+            ['hola'],
+        ]
+
+        batch = [
+            {'text': 'hello', 'result_index': 0, 'chunk_count': 1, 'unit_offset': 0, 'unit_index': 1},
+        ]
+
+        translated = engine._translate_remote_batch_with_retries(
+            batch,
+            source_language='en',
+            target_language='es',
+            progress_callback=lambda _: None,
+            progress_label='test',
+        )
+
+        self.assertEqual(translated, ['hola'])
+        self.assertEqual(completion_mock.call_count, 2)
+        sleep_mock.assert_called()
+
     def test_migrates_legacy_model_cache_when_new_cache_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             base_dir = Path(temp_dir)

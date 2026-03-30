@@ -97,3 +97,4 @@ Notas importantes:
 - La clave API se guarda localmente en la configuracion del programa en texto plano.
 - Puedes borrar la clave guardada desde `Configuracion`.
 - La version web usa la clave API guardada en el navegador y mantiene claves separadas por proveedor.
+- OpenAI no se ofrece en la version web porque `api.openai.com` no permite este flujo directo desde navegador con `fetch` autenticado; en web usa Gemini, Anthropic o DeepSeek.

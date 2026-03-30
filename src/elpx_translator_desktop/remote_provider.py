@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import socket
 import ssl
 from dataclasses import dataclass
 from urllib import error, request
@@ -22,11 +23,7 @@ ANTHROPIC_API_BASE_URL = 'https://api.anthropic.com/v1'
 DEEPSEEK_API_BASE_URL = 'https://api.deepseek.com/v1'
 
 DEFAULT_REMOTE_MODEL_IDS = {
-    'openai': [
-        'gpt-5-mini',
-        'gpt-5-nano',
-        'gpt-4.1-mini',
-    ],
+    'openai': [],
     'gemini': [
         'gemini-2.5-flash',
         'gemini-2.5-pro',
@@ -303,9 +300,6 @@ def _is_supported_deepseek_model(model_id: str) -> bool:
 
 def _remote_model_sort_key(model_id: str) -> tuple[int, str]:
     priority_map = {
-        'gpt-5-mini': 0,
-        'gpt-5-nano': 1,
-        'gpt-4.1-mini': 2,
         'gemini-2.5-flash': 0,
         'gemini-2.5-pro': 1,
         'gemini-2.0-flash': 2,
@@ -326,6 +320,7 @@ def _chat_completion(
     system_prompt: str,
     user_prompt: str,
 ) -> str:
+    timeout = 90 if provider == 'openai' else 60
     if provider == 'openai':
         url = f'{OPENAI_API_BASE_URL}/chat/completions'
         headers = {'Authorization': f'Bearer {api_key}'}
@@ -351,11 +346,13 @@ def _chat_completion(
         headers=headers,
         body={
             'model': model_id,
+            'response_format': {'type': 'json_object'},
             'messages': [
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': user_prompt},
             ],
         },
+        timeout=timeout,
     )
     try:
         message = payload['choices'][0]['message']['content']
@@ -444,6 +441,10 @@ def is_structured_response_error(error: RemoteProviderError) -> bool:
     return any(str(error).startswith(marker) for marker in STRUCTURED_RESPONSE_ERROR_MARKERS)
 
 
+def is_retryable_remote_error(error: RemoteProviderError) -> bool:
+    return error.status_code is None and error.retry_after_seconds is not None
+
+
 def _try_parse_json_object(content: str):
     try:
         parsed = json.loads(content)
@@ -530,7 +531,25 @@ def _http_json(
             retry_after_seconds=retry_after_seconds,
             raw_details=details or http_error.reason,
         ) from http_error
+    except TimeoutError as timeout_error:
+        raise RemoteProviderError(
+            'Tiempo de espera agotado al llamar al proveedor remoto.',
+            retry_after_seconds=2.0,
+            raw_details=str(timeout_error),
+        ) from timeout_error
+    except socket.timeout as timeout_error:
+        raise RemoteProviderError(
+            'Tiempo de espera agotado al llamar al proveedor remoto.',
+            retry_after_seconds=2.0,
+            raw_details=str(timeout_error),
+        ) from timeout_error
     except error.URLError as url_error:
+        if isinstance(url_error.reason, (TimeoutError, socket.timeout)):
+            raise RemoteProviderError(
+                'Tiempo de espera agotado al llamar al proveedor remoto.',
+                retry_after_seconds=2.0,
+                raw_details=str(url_error.reason),
+            ) from url_error
         raise RemoteProviderError(f'No se ha podido conectar con el proveedor remoto: {url_error.reason}') from url_error
 
 
