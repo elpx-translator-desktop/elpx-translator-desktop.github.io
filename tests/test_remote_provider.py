@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from unittest.mock import patch
 
@@ -156,6 +157,34 @@ class RemoteProviderTests(unittest.TestCase):
 
         self.assertTrue(is_structured_response_error(error_info.exception))
         self.assertEqual(error_info.exception.raw_details, '{"translations":["hola"]}')
+
+    @patch('elpx_translator_desktop.remote_provider.request.urlopen')
+    def test_http_json_uses_explicit_ssl_context(self, urlopen_mock) -> None:
+        from elpx_translator_desktop import remote_provider
+
+        class FakeHeaders:
+            @staticmethod
+            def get_content_charset() -> str:
+                return 'utf-8'
+
+        class FakeResponse:
+            headers = FakeHeaders()
+
+            def read(self) -> bytes:
+                return json.dumps({'data': []}).encode('utf-8')
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+        urlopen_mock.return_value = FakeResponse()
+
+        remote_provider._http_json('https://api.openai.com/v1/models')
+
+        _, kwargs = urlopen_mock.call_args
+        self.assertIs(kwargs['context'], remote_provider.SSL_CONTEXT)
 
 
 if __name__ == '__main__':

@@ -3,8 +3,11 @@ from __future__ import annotations
 import ast
 import json
 import re
+import ssl
 from dataclasses import dataclass
 from urllib import error, request
+
+import certifi
 
 
 OPENAI_API_KEY_URL = 'https://platform.openai.com/api-keys'
@@ -47,6 +50,8 @@ STRUCTURED_RESPONSE_ERROR_MARKERS = (
     'La respuesta del proveedor remoto no contiene un JSON utilizable.',
     'La respuesta del proveedor remoto no contiene el objeto JSON esperado.',
 )
+
+SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 
 class RemoteProviderError(RuntimeError):
@@ -503,7 +508,7 @@ def _http_json(
 
     req = request.Request(url, data=data, headers=request_headers, method=method)
     try:
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout, context=SSL_CONTEXT) as response:
             charset = response.headers.get_content_charset() or 'utf-8'
             parsed = json.loads(response.read().decode(charset))
             if not isinstance(parsed, dict):
