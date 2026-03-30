@@ -813,9 +813,19 @@ class MainWindow(QMainWindow):
         header_layout.setContentsMargins(14, 12, 14, 12)
         header_layout.setSpacing(10)
 
+        title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(8)
+
         self.title_label = QLabel('')
         self.title_label.setObjectName('titleLabel')
-        header_layout.addWidget(self.title_label)
+        title_layout.addWidget(self.title_label, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self.version_label = QLabel('')
+        self.version_label.setObjectName('infoLabel')
+        title_layout.addWidget(self.version_label, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        header_layout.addLayout(title_layout)
         header_layout.addStretch()
 
         self.settings_button = QPushButton('')
@@ -1727,6 +1737,7 @@ class MainWindow(QMainWindow):
     def _apply_ui_texts(self) -> None:
         self.setWindowTitle(tr(self.ui_language, 'app_title'))
         self.title_label.setText(tr(self.ui_language, 'app_title'))
+        self.version_label.setText(f'v{__version__}')
         self.settings_button.setIcon(self._header_icon('preferences-system', QStyle.SP_FileDialogDetailedView))
         self.settings_button.setText(tr(self.ui_language, 'settings'))
         self.settings_button.setToolTip(tr(self.ui_language, 'settings'))
