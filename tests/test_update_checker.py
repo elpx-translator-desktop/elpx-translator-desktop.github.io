@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import unittest
+from unittest.mock import patch
 
 from elpx_translator_desktop.update_checker import (
     is_newer_version,
@@ -92,6 +94,28 @@ class UpdateCheckerTests(unittest.TestCase):
         selected = select_update_release(releases, '0.1.5b5')
 
         self.assertIsNone(selected)
+
+    @patch('elpx_translator_desktop.update_checker.urllib.request.urlopen')
+    def test_update_worker_uses_explicit_ssl_context(self, urlopen_mock) -> None:
+        from elpx_translator_desktop import update_checker
+
+        class FakeResponse:
+            def read(self) -> bytes:
+                return json.dumps([]).encode('utf-8')
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+        urlopen_mock.return_value = FakeResponse()
+
+        worker = update_checker.UpdateCheckWorker()
+        worker.run()
+
+        _, kwargs = urlopen_mock.call_args
+        self.assertIs(kwargs['context'], update_checker.SSL_CONTEXT)
 
 
 if __name__ == '__main__':

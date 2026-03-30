@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+import ssl
 import threading
 import urllib.request
 
+import certifi
 from PySide6.QtCore import QObject, Signal, Slot
 
 from . import PROJECT_RELEASES_URL, __version__
@@ -16,6 +18,8 @@ PRERELEASE_STAGE_RANK = {
     'rc': 2,
     'stable': 3,
 }
+
+SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 
 class UpdateCheckWorker(QObject):
@@ -48,7 +52,7 @@ class UpdateCheckWorker(QObject):
                 RELEASES_JSON_URL,
                 headers={'User-Agent': 'elpx-translator-desktop'},
             )
-            with urllib.request.urlopen(request, timeout=8) as response:
+            with urllib.request.urlopen(request, timeout=8, context=SSL_CONTEXT) as response:
                 payload = json.loads(response.read().decode('utf-8'))
 
             release = select_update_release(
