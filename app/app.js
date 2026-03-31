@@ -23,6 +23,11 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const PROVIDERS = {
+  openai: {
+    label: 'OpenAI API',
+    defaultModel: 'gpt-5-mini',
+    defaultModels: ['gpt-5-mini', 'gpt-5', 'gpt-5-nano'],
+  },
   gemini: {
     label: 'Gemini API',
     defaultModel: 'gemini-2.5-flash',
@@ -75,6 +80,7 @@ const APP_I18N = {
     file_panel_body: 'Elige el archivo y los idiomas antes de traducir.',
     file_label: 'Archivo .elpx',
     source_language_label: 'Idioma de origen',
+    source_language_detected_label: 'Idioma detectado',
     target_language_label: 'Idioma de destino',
     custom_target_label: 'Código de idioma',
     custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
@@ -153,6 +159,7 @@ const APP_I18N = {
     file_panel_body: 'Choose the file and languages before translating.',
     file_label: '.elpx file',
     source_language_label: 'Source language',
+    source_language_detected_label: 'Detected language',
     target_language_label: 'Target language',
     custom_target_label: 'Language code',
     custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
@@ -231,6 +238,7 @@ const APP_I18N = {
     file_panel_body: 'Tria el fitxer i els idiomes abans de traduir.',
     file_label: 'Fitxer .elpx',
     source_language_label: 'Idioma d’origen',
+    source_language_detected_label: 'Idioma detectat',
     target_language_label: 'Idioma de destinació',
     custom_target_label: 'Codi d’idioma',
     custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
@@ -309,6 +317,7 @@ const APP_I18N = {
     file_panel_body: 'Aukeratu fitxategia eta hizkuntzak itzuli aurretik.',
     file_label: '.elpx fitxategia',
     source_language_label: 'Jatorrizko hizkuntza',
+    source_language_detected_label: 'Detektatutako hizkuntza',
     target_language_label: 'Helburuko hizkuntza',
     custom_target_label: 'Hizkuntza kodea',
     custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
@@ -387,6 +396,7 @@ const APP_I18N = {
     file_panel_body: 'Escolle o ficheiro e os idiomas antes de traducir.',
     file_label: 'Ficheiro .elpx',
     source_language_label: 'Idioma de orixe',
+    source_language_detected_label: 'Idioma detectado',
     target_language_label: 'Idioma de destino',
     custom_target_label: 'Código de idioma',
     custom_target_placeholder: 'sv, ja, pt-BR, zh-CN',
@@ -497,6 +507,7 @@ const elements = {
   languagePicker: document.getElementById('language-picker'),
   form: document.getElementById('translator-form'),
   inputFile: document.getElementById('input-file'),
+  sourceLanguageLabel: document.querySelector('[data-i18n="source_language_label"]'),
   sourceLanguage: document.getElementById('source-language'),
   targetLanguage: document.getElementById('target-language'),
   customTargetField: document.getElementById('custom-target-field'),
@@ -519,6 +530,8 @@ const elements = {
 
 let activeDownloadUrl = null;
 let currentLanguage = 'es';
+let detectedProjectLanguage = null;
+let autoDetectedSourceLanguageActive = false;
 
 function languagePack(language) {
   return APP_I18N[language] || APP_I18N.es;
@@ -581,6 +594,16 @@ function applyStaticTranslations() {
     elements.languagePicker.value = currentLanguage;
     elements.languagePicker.setAttribute('aria-label', t('language_label'));
   }
+
+  updateSourceLanguageLabel();
+}
+
+function updateSourceLanguageLabel() {
+  if (!elements.sourceLanguageLabel) {
+    return;
+  }
+  const labelKey = autoDetectedSourceLanguageActive ? 'source_language_detected_label' : 'source_language_label';
+  elements.sourceLanguageLabel.textContent = t(labelKey);
 }
 
 class TranslationPlanner {
@@ -907,6 +930,9 @@ function isValidRemoteModel(provider, modelId) {
 
 function remoteModelSortKey(left, right) {
   const preferredOrder = {
+    'gpt-5-mini': 0,
+    'gpt-5': 1,
+    'gpt-5-nano': 2,
     'gemini-2.5-flash': 0,
     'gemini-2.5-pro': 1,
     'gemini-2.0-flash': 2,
@@ -1109,6 +1135,20 @@ async function translateElpxFile(file, settings) {
     filename: buildOutputFilename(file.name, settings.targetLanguage),
     queuedUnits: planner.size,
   };
+}
+
+async function detectProjectLanguageFromFile(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const contentXmlPath = findContentXmlPath(Object.keys(zip.files));
+  if (!contentXmlPath) {
+    return null;
+  }
+
+  const xmlContent = await zip.file(contentXmlPath).async('string');
+  const xmlDocument = parseXml(xmlContent);
+  const languageNode = getPropertyValueNodes(xmlDocument, 'odeProperty', new Set(['pp_lang']))[0];
+  const detectedLanguage = languageNode ? getNodeText(languageNode).trim().toLowerCase() : '';
+  return detectedLanguage || null;
 }
 
 function processStructuralNodes(xmlDocument, planner) {
@@ -1703,7 +1743,42 @@ elements.provider.addEventListener('change', () => {
   syncApiDependentControls();
   saveSettings();
 });
-elements.sourceLanguage.addEventListener('change', saveSettings);
+elements.inputFile.addEventListener('change', async () => {
+  const file = elements.inputFile.files?.[0];
+  if (!file) {
+    detectedProjectLanguage = null;
+    autoDetectedSourceLanguageActive = false;
+    updateSourceLanguageLabel();
+    return;
+  }
+
+  try {
+    const detectedLanguage = await detectProjectLanguageFromFile(file);
+    const supportedSourceLanguages = new Set(LANGUAGE_OPTIONS.map(([code]) => code));
+    detectedProjectLanguage = detectedLanguage;
+    if (!detectedLanguage || !supportedSourceLanguages.has(detectedLanguage)) {
+      autoDetectedSourceLanguageActive = false;
+      updateSourceLanguageLabel();
+      return;
+    }
+    elements.sourceLanguage.value = detectedLanguage;
+    autoDetectedSourceLanguageActive = true;
+    updateSourceLanguageLabel();
+    saveSettings();
+  } catch {
+    // If detection fails, keep the current manual selection.
+    detectedProjectLanguage = null;
+    autoDetectedSourceLanguageActive = false;
+    updateSourceLanguageLabel();
+  }
+});
+elements.sourceLanguage.addEventListener('change', () => {
+  if (!autoDetectedSourceLanguageActive || elements.sourceLanguage.value !== detectedProjectLanguage) {
+    autoDetectedSourceLanguageActive = false;
+  }
+  updateSourceLanguageLabel();
+  saveSettings();
+});
 elements.targetLanguage.addEventListener('change', () => {
   toggleCustomTargetVisibility();
   saveSettings();
@@ -1731,10 +1806,13 @@ elements.clearApiKeyButton.addEventListener('click', () => {
 
 elements.resetButton.addEventListener('click', () => {
   elements.form.reset();
+  detectedProjectLanguage = null;
+  autoDetectedSourceLanguageActive = false;
   initializeForm();
   elements.apiKey.value = '';
   syncApiDependentControls();
   clearResult();
+  updateSourceLanguageLabel();
   setIdleStatus();
 });
 

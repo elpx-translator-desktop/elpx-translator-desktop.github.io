@@ -785,6 +785,7 @@ class MainWindow(QMainWindow):
         self.preferred_target_language = self._load_target_language()
         self.receive_beta_updates = self._load_receive_beta_updates()
         self.detected_project_language: str | None = None
+        self.auto_detected_source_language_active = False
         self.current_status = 'waiting'
 
         self._build_ui()
@@ -1472,10 +1473,14 @@ class MainWindow(QMainWindow):
             detected_language = ElpxTranslationService().detect_project_language(input_path)
         except Exception:  # noqa: BLE001
             self.detected_project_language = None
+            self.auto_detected_source_language_active = False
+            self._update_source_label()
             return
 
         if not detected_language:
             self.detected_project_language = None
+            self.auto_detected_source_language_active = False
+            self._update_source_label()
             return
 
         self.detected_project_language = detected_language
@@ -1483,6 +1488,8 @@ class MainWindow(QMainWindow):
             detected_language,
             self.target_combo.currentData() or DEFAULT_TARGET_LANGUAGE,
         )
+        self.auto_detected_source_language_active = True
+        self._update_source_label()
         if self.translation_provider == 'local' and detected_language not in SUPPORTED_LANGUAGE_CODES:
             self._show_warning(
                 tr(
@@ -1560,6 +1567,9 @@ class MainWindow(QMainWindow):
     def _handle_source_language_changed(self) -> None:
         self._sync_language_pairs()
         source_language = self._selected_source_language()
+        if not self.auto_detected_source_language_active or source_language != self.detected_project_language:
+            self.auto_detected_source_language_active = False
+        self._update_source_label()
         if not self.detected_project_language or source_language == self.detected_project_language:
             return
         detected_label = self.language_labels.get(self.detected_project_language, self.detected_project_language)
@@ -1675,6 +1685,10 @@ class MainWindow(QMainWindow):
     def _selected_source_language(self) -> str:
         return str(self.origin_combo.currentData() or DEFAULT_SOURCE_LANGUAGE)
 
+    def _update_source_label(self) -> None:
+        label_key = 'source_label_detected' if self.auto_detected_source_language_active else 'source_label'
+        self.source_label.setText(tr(self.ui_language, label_key))
+
     def _is_custom_target_selected(self) -> bool:
         return self.target_combo.currentData() == CUSTOM_TARGET_LANGUAGE_VALUE
 
@@ -1754,7 +1768,7 @@ class MainWindow(QMainWindow):
         self.output_label.setText(tr(self.ui_language, 'output_label'))
         self.output_edit.setPlaceholderText(tr(self.ui_language, 'output_placeholder'))
         self.save_button.setText(tr(self.ui_language, 'save_as_button'))
-        self.source_label.setText(tr(self.ui_language, 'source_label'))
+        self._update_source_label()
         self.target_label.setText(tr(self.ui_language, 'target_label'))
         self.custom_target_label.setText(tr(self.ui_language, 'custom_target_language_label'))
         self.custom_target_edit.setPlaceholderText(tr(self.ui_language, 'custom_target_language_placeholder'))
