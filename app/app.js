@@ -100,6 +100,7 @@ const APP_I18N = {
     tips_1: 'La versión web no sustituye a la versión de escritorio.',
     tips_2: 'Necesitas tu propia clave API.',
     tips_3: 'Conviene revisar el archivo traducido antes de publicarlo.',
+    custom_language_option_label: '{code} · idioma detectado',
     custom_target_option: 'Otro código de idioma',
     no_pending_text: 'No hay texto pendiente de traducir.',
     preparing_batches: 'Preparando lotes...',
@@ -179,6 +180,7 @@ const APP_I18N = {
     tips_1: 'The web version does not replace the desktop version.',
     tips_2: 'You need your own API key.',
     tips_3: 'It is advisable to review the translated file before publishing it.',
+    custom_language_option_label: '{code} · detected language',
     custom_target_option: 'Other language code',
     no_pending_text: 'There is no text pending translation.',
     preparing_batches: 'Preparing batches...',
@@ -258,6 +260,7 @@ const APP_I18N = {
     tips_1: 'La versió web no substitueix la versió d’escriptori.',
     tips_2: 'Necessites la teua pròpia clau API.',
     tips_3: 'Convé revisar el fitxer traduït abans de publicar-lo.',
+    custom_language_option_label: '{code} · idioma detectat',
     custom_target_option: 'Un altre codi d’idioma',
     no_pending_text: 'No hi ha text pendent de traduir.',
     preparing_batches: 'Preparant lots...',
@@ -337,6 +340,7 @@ const APP_I18N = {
     tips_1: 'Web bertsioak ez du mahaigaineko bertsioa ordezkatzen.',
     tips_2: 'Zure API gakoa behar duzu.',
     tips_3: 'Argitaratu aurretik itzulitako fitxategia berrikustea komeni da.',
+    custom_language_option_label: '{code} · detektatutako hizkuntza',
     custom_target_option: 'Beste hizkuntza kode bat',
     no_pending_text: 'Ez dago itzultzeko testu pendenterik.',
     preparing_batches: 'Multzoak prestatzen...',
@@ -416,6 +420,7 @@ const APP_I18N = {
     tips_1: 'A versión web non substitúe a versión de escritorio.',
     tips_2: 'Necesitas a túa propia clave API.',
     tips_3: 'Convén revisar o ficheiro traducido antes de publicalo.',
+    custom_language_option_label: '{code} · idioma detectado',
     custom_target_option: 'Outro código de idioma',
     no_pending_text: 'Non hai texto pendente de traducir.',
     preparing_batches: 'Preparando lotes...',
@@ -825,12 +830,36 @@ function fillSelect(select, options, selectedValue) {
   select.value = selectedValue;
 }
 
+function languageOptionLabel(code) {
+  const match = LANGUAGE_OPTIONS.find(([value]) => value === code);
+  if (match) {
+    return `${code} · ${match[1]}`;
+  }
+  return t('custom_language_option_label', { code });
+}
+
+function fillSourceLanguageOptions(selectedValue) {
+  const options = [...LANGUAGE_OPTIONS];
+  if (selectedValue && !options.some(([value]) => value === selectedValue)) {
+    options.unshift([selectedValue, languageOptionLabel(selectedValue)]);
+  }
+  fillSelect(
+    elements.sourceLanguage,
+    options.map(([value]) => [value, languageOptionLabel(value)]),
+    selectedValue,
+  );
+}
+
 function fillTargetLanguageOptions(selectedValue) {
   const options = [...LANGUAGE_OPTIONS, [CUSTOM_TARGET_LANGUAGE_VALUE, t('custom_target_option')]];
-  elements.targetLanguage.innerHTML = options
-    .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
-    .join('');
-  elements.targetLanguage.value = selectedValue;
+  fillSelect(
+    elements.targetLanguage,
+    options.map(([value, label]) => [
+      value,
+      value === CUSTOM_TARGET_LANGUAGE_VALUE ? label : languageOptionLabel(value),
+    ]),
+    selectedValue,
+  );
 }
 
 function fillProviderOptions() {
@@ -1676,7 +1705,7 @@ function escapeHtml(value) {
 function initializeForm() {
   const saved = loadSavedSettings();
   const defaultProvider = Object.keys(PROVIDERS)[0] || '';
-  fillSelect(elements.sourceLanguage, LANGUAGE_OPTIONS, saved.sourceLanguage || 'es');
+  fillSourceLanguageOptions(saved.sourceLanguage || 'es');
   const savedTarget = saved.customTargetLanguage ? CUSTOM_TARGET_LANGUAGE_VALUE : (saved.targetLanguage || 'en');
   fillTargetLanguageOptions(savedTarget);
   fillProviderOptions();
@@ -1706,6 +1735,8 @@ function applyLanguage(language) {
   localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, currentLanguage);
   applyStaticTranslations();
 
+  const currentSource = elements.sourceLanguage.value || 'es';
+  fillSourceLanguageOptions(currentSource);
   const currentTarget = elements.targetLanguage.value || 'en';
   fillTargetLanguageOptions(currentTarget);
   toggleCustomTargetVisibility();
@@ -1758,9 +1789,11 @@ elements.inputFile.addEventListener('change', async () => {
     detectedProjectLanguage = detectedLanguage;
     if (!detectedLanguage || !supportedSourceLanguages.has(detectedLanguage)) {
       autoDetectedSourceLanguageActive = false;
+      fillSourceLanguageOptions(elements.sourceLanguage.value || 'es');
       updateSourceLanguageLabel();
       return;
     }
+    fillSourceLanguageOptions(detectedLanguage);
     elements.sourceLanguage.value = detectedLanguage;
     autoDetectedSourceLanguageActive = true;
     updateSourceLanguageLabel();
