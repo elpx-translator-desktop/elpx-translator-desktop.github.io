@@ -307,7 +307,7 @@ TRANSLATIONS = {
         'about_independence_title': 'Projecte independent',
         'about_independence_body': 'Aquest programa no és un projecte de l’INTEF ni d’eXeLearning, i no hi està afiliat oficialment.',
         'about_license_body': 'Aquest programa es distribueix sota la GNU AGPLv3 o posterior.',
-        'about_credits_body': 'Aquest programa combina programari lliure, models oberts de traducció, serveis de distribució de models i, de manera opcional, proveïdors API externs configurats pel mateix usuari.',
+        'about_credits_body': 'Aquest programa combina programari lliure, models oberts de traducció, serveis de distribució de models i, de manera opcional, proveïdors API externs configurats per la mateixa persona usuària.',
         'about_models_title': 'Models de traducció',
         'about_models_body': 'Model general: M2M100 418M, publicat per Facebook AI. Traduccions amb euskera: models OPUS-MT del grup Helsinki-NLP i la infraestructura d’OPUS.',
         'about_tech_title': 'Tecnologies principals',
