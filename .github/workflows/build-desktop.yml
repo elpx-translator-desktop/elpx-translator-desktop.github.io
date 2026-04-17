@@ -14,10 +14,10 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Set up Python
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                   python-version: '3.11'
 
@@ -66,7 +66,7 @@ jobs:
                   GLIBC_BASELINE=2.35 APPIMAGE_TOOL="./appimagetool-x86_64.AppImage --appimage-extract-and-run" ./packaging/linux/build-linux-artifacts.sh
 
             - name: Upload build artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: elpx-translator-desktop-linux
                   path: |
@@ -75,7 +75,7 @@ jobs:
 
             - name: Attach release asset
               if: github.event_name == 'release'
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               with:
                   files: |
                       elpx-translator-desktop_${{ steps.version.outputs.deb_version }}_*.deb
@@ -86,10 +86,10 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Set up Python
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                   python-version: '3.11'
 
@@ -128,14 +128,14 @@ jobs:
                   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.version.outputs.app_version }}" "/DMyAppSource=$env:GITHUB_WORKSPACE\dist\ELPXTranslatorDesktop" "/DMyOutputDir=$env:GITHUB_WORKSPACE\dist-installer" "packaging\windows\installer.iss"
 
             - name: Upload build artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: elpx-translator-desktop-windows-exe
                   path: dist-installer/elpx-translator-desktop-windows-${{ steps.version.outputs.app_version }}.exe
 
             - name: Attach release asset
               if: github.event_name == 'release'
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               with:
                   files: dist-installer/elpx-translator-desktop-windows-${{ steps.version.outputs.app_version }}.exe
 
@@ -144,10 +144,10 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Set up Python
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                   python-version: '3.11'
 
@@ -178,13 +178,13 @@ jobs:
                   hdiutil create -volname "ELPX Translator Desktop" -srcfolder "dist/ELPXTranslatorDesktop.app" -ov -format UDZO "elpx-translator-desktop-macos-${APP_VERSION}.dmg"
 
             - name: Upload build artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: elpx-translator-desktop-macos-dmg
                   path: elpx-translator-desktop-macos-${{ steps.version.outputs.app_version }}.dmg
 
             - name: Attach release asset
               if: github.event_name == 'release'
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               with:
                   files: elpx-translator-desktop-macos-${{ steps.version.outputs.app_version }}.dmg
