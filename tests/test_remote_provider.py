@@ -94,6 +94,36 @@ class RemoteProviderTests(unittest.TestCase):
         self.assertEqual(kwargs['body']['response_format'], {'type': 'json_object'})
 
     @patch('elpx_translator_desktop.remote_provider._http_json')
+    def test_create_translation_completion_for_gemini_uses_native_api_key_auth(self, http_json_mock) -> None:
+        http_json_mock.return_value = {
+            'candidates': [
+                {
+                    'content': {
+                        'parts': [
+                            {'text': '{"translations":["hola"]}'},
+                        ],
+                    },
+                },
+            ],
+        }
+
+        result = create_translation_completion(
+            'gemini',
+            api_key='test-key',
+            model_id='gemini-2.5-flash',
+            source_language='en',
+            target_language='es',
+            texts=['hello'],
+        )
+
+        self.assertEqual(result, ['hola'])
+        args, kwargs = http_json_mock.call_args
+        self.assertEqual(args[0], 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent')
+        self.assertEqual(kwargs['headers'], {'x-goog-api-key': 'test-key'})
+        self.assertEqual(kwargs['body']['generationConfig']['responseMimeType'], 'application/json')
+        self.assertEqual(kwargs['body']['contents'][0]['role'], 'user')
+
+    @patch('elpx_translator_desktop.remote_provider._http_json')
     def test_create_translation_completion_for_anthropic(self, http_json_mock) -> None:
         http_json_mock.return_value = {
             'content': [

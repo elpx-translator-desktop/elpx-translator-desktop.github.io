@@ -325,8 +325,13 @@ def _chat_completion(
         url = f'{OPENAI_API_BASE_URL}/chat/completions'
         headers = {'Authorization': f'Bearer {api_key}'}
     elif provider == 'gemini':
-        url = f'{GEMINI_OPENAI_BASE_URL}/chat/completions'
-        headers = {'Authorization': f'Bearer {api_key}'}
+        return _gemini_generate_content(
+            api_key=api_key,
+            model_id=model_id,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            timeout=timeout,
+        )
     elif provider == 'deepseek':
         url = f'{DEEPSEEK_API_BASE_URL}/chat/completions'
         headers = {'Authorization': f'Bearer {api_key}'}
@@ -366,6 +371,75 @@ def _chat_completion(
         return ''.join(part.get('text', '') for part in message if isinstance(part, dict))
 
     raise RemoteProviderError('No se ha podido leer el contenido de la respuesta remota.')
+
+
+def _gemini_generate_content(
+    *,
+    api_key: str,
+    model_id: str,
+    system_prompt: str,
+    user_prompt: str,
+    timeout: int,
+) -> str:
+    payload = _http_json(
+        f'{GEMINI_API_BASE_URL}/models/{model_id}:generateContent',
+        method='POST',
+        headers={
+            'x-goog-api-key': api_key,
+        },
+        body={
+            'systemInstruction': {
+                'parts': [
+                    {'text': system_prompt},
+                ],
+            },
+            'contents': [
+                {
+                    'role': 'user',
+                    'parts': [
+                        {'text': user_prompt},
+                    ],
+                },
+            ],
+            'generationConfig': {
+                'responseMimeType': 'application/json',
+                'responseSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'translations': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        },
+                    },
+                    'required': ['translations'],
+                },
+            },
+        },
+        timeout=timeout,
+    )
+    candidates = payload.get('candidates')
+    if not isinstance(candidates, list) or not candidates:
+        raise RemoteProviderError('La respuesta de Gemini no tiene el formato esperado.')
+
+    content = candidates[0].get('content')
+    if not isinstance(content, dict):
+        raise RemoteProviderError('La respuesta de Gemini no tiene contenido utilizable.')
+
+    parts = content.get('parts')
+    if not isinstance(parts, list):
+        raise RemoteProviderError('La respuesta de Gemini no contiene bloques de texto utilizables.')
+
+    text_parts: list[str] = []
+    for item in parts:
+        if not isinstance(item, dict):
+            continue
+        text = item.get('text')
+        if isinstance(text, str):
+            text_parts.append(text)
+
+    if not text_parts:
+        raise RemoteProviderError('No se ha podido leer el texto devuelto por Gemini.')
+    return ''.join(text_parts)
 
 
 def _anthropic_message_completion(

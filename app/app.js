@@ -746,13 +746,13 @@ class RemoteTranslator {
   }
 
   async callOpenAiCompatible(systemPrompt, payload) {
+    if (this.provider === 'gemini') {
+      return this.callGeminiNative(systemPrompt, payload);
+    }
+
     const config = {
       openai: {
         url: 'https://api.openai.com/v1/chat/completions',
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-      },
-      gemini: {
-        url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         headers: { Authorization: `Bearer ${this.apiKey}` },
       },
       deepseek: {
@@ -787,6 +787,59 @@ class RemoteTranslator {
     }
 
     return data?.choices?.[0]?.message?.content || '';
+  }
+
+  async callGeminiNative(systemPrompt, payload) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              { text: systemPrompt },
+            ],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: JSON.stringify(payload) },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'object',
+              properties: {
+                translations: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+              required: ['translations'],
+            },
+          },
+        }),
+      },
+    );
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(extractProviderError(data, response.status));
+    }
+
+    const parts = Array.isArray(data?.candidates?.[0]?.content?.parts)
+      ? data.candidates[0].content.parts
+      : [];
+    return parts
+      .map((item) => (typeof item?.text === 'string' ? item.text : ''))
+      .join('');
   }
 
   async callAnthropic(systemPrompt, payload) {
